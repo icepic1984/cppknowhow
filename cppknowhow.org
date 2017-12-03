@@ -151,6 +151,8 @@
    temporary object (12.2) or subobject thereof, or a value that is not
    associated with an object.
 ** Special member functions
+ See [[https://www.youtube.com/watch?v=vLinb2fgkHk][Howard Hinnart: All you need to know about move semantics]] ([[https://de.slideshare.net/ripplelabs/howard-hinnant-accu2014][Slides]])
+
  Speical members are those menber function that the compiler can be
  asked to automatically generate code for.
  + Default constructor ~X();~
@@ -178,19 +180,20 @@
  #+end_src
   
  Generation of special member functions:
-|                     | Compiler generated                                                                                           | 
-|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
-| User declared       | default constructor | destructor    | copy destructor | copy assignment | move constructor | move assignment |
-|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
-| nothing             | defaulted           | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
-| any constructor     | not declared        | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
-| default constructor | user declared       | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
-| destructor          | defaulted           | user declared | defaulted*      | defaulted*      | not declared     | not declared    |
-| copy constructor    | not declared        | defaulted     | user declared   | defaulted*      | not declared     | not declared    |
-| copy assignment     | defaulted           | defaulted     | defaulted*      | user declared   | not declared     | not declared    |
-| move constructor    | not declared        | defaulted     | deleted         | deleted         | user declared    | not declared    |
-| move assignment     | defaulted           | defaulted     | deleted         | deleted         | not declared     | user declared   |
-|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
-| * = deprecated      |                     |               |                 |                 |                  |                 |
+|---------------------+----------------------+---------------+-----------------+-----------------+------------------+-----------------|
+|                     | *Compiler generated* |               |                 |                 |                  |                 |
+|---------------------+----------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| *User declared*     | default constructor  | destructor    | copy destructor | copy assignment | move constructor | move assignment |
+|---------------------+----------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| nothing             | defaulted            | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| any constructor     | not declared         | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| default constructor | user declared        | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| destructor          | defaulted            | user declared | defaulted*      | defaulted*      | not declared     | not declared    |
+| copy constructor    | not declared         | defaulted     | user declared   | defaulted*      | not declared     | not declared    |
+| copy assignment     | defaulted            | defaulted     | defaulted*      | user declared   | not declared     | not declared    |
+| move constructor    | not declared         | defaulted     | deleted         | deleted         | user declared    | not declared    |
+| move assignment     | defaulted            | defaulted     | deleted         | deleted         | not declared     | user declared   |
+|---------------------+----------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| * = deprecated      |                      |               |                 |                 |                  |                 |
  
  
