@@ -14,32 +14,31 @@
  int f();             // declaration
  int f() {return 42;} // definition
  
- int main()
- {}
+ int main() {}
  #+end_src
  
  Example for variable declaration and definition
  #+begin_src cpp 
- int f();             // declaration
- int f() {return 42;} // definition
- 
- int main()
- {}
+ int x;             // definition
+ int y = 42;        // definition and initialization
+ extern int u;      // declaration 
+ extern int v = 42; // definition
+ int main() {}
  #+end_src
-
- 
 
  #+RESULTS:
 
 ** Linkage
- A *translation unit* refers to an implementation (.c/.cpp) file and all
- header (.h/.hpp) files it includes. If an object or function inside
- such a translation unit has *internal linkage*, then that specific
- symbol is only visible to the linker within that translation unit. If
- an object or function has *external linkage*, the linker can also see it
- when processing other translation units. The ~static~ keyword, when used
- in the global namespace, forces a symbol to have internal linkage. The
- ~extern~ keyword results in a symbol having external linkage.
+ A *translation unit* refers to an implementation (.c/.cpp) file and
+ all header (.h/.hpp) files it includes. If an object or function
+ inside such a translation unit has *internal linkage*, then that
+ specific symbol is only visible to the linker within that translation
+ unit. If an object or function has *external linkage*, the linker can
+ also see it when processing other translation units. The ~static~
+ keyword, when used in the global namespace, forces a symbol to have
+ internal linkage. The ~extern~ keyword results in a symbol having
+ external linkage. Anonymous namespaces are another way to declare one
+ or more symbols to have internal linkage.
 
  The compiler defaults the linkage of symbols such that:
 
