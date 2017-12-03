@@ -28,6 +28,27 @@
 
  #+RESULTS:
 
+*** One Definition Rule
+
+  + In any translation unit, a template, type, function, or object can
+    have no more than one definition. Some of these can have any number
+    of declarations. A definition provides an instance.
+
+  + In the entire program, an object or non-inline function cannot have
+    more than one definition; if an object or function is used, it must
+    have exactly one definition. You can declare an object or function
+    that is never used, in which case you don't have to provide a
+    definition. In no event can there be more than one definition.
+
+  + Some things, like types, templates, and extern inline functions, can
+    be defined in more than one translation unit. For a given entity,
+    each definition must be the same. Non-extern objects and functions
+    in different translation units are different entities, even if their
+    names and types are the same.
+
+  Some violations of the ODR must be diagnosed by the compiler. Other
+  violations, particularly those that span translation units, are not
+  required to be diagnosed.[1]
 ** Linkage
  A *translation unit* refers to an implementation (.c/.cpp) file and
  all header (.h/.hpp) files it includes. If an object or function
