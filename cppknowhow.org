@@ -1,0 +1,132 @@
+* C++ Know-How
+** Declaration vs Definition
+ We’ll use the term symbol to refer to any kind of “code entity” that a
+ linker works with, i.e. variables, functions and classes/structs.
+
+ A *declaration* tells the compiler about the existence of a certain
+ symbol and makes it possible to refer to that symbol everywhere where
+ the explicit memory address or required storage of that symbol is not
+ required. A *definition* tells the compiler what the body of a
+ function contains or how much memory it must allocate for a variable.
+
+ Example for function declaration and definition
+ #+begin_src cpp 
+ int f();             // declaration
+ int f() {return 42;} // definition
+ 
+ int main()
+ {}
+ #+end_src
+ 
+ Example for variable declaration and definition
+ #+begin_src cpp 
+ int f();             // declaration
+ int f() {return 42;} // definition
+ 
+ int main()
+ {}
+ #+end_src
+
+ 
+
+ #+RESULTS:
+
+** Linkage
+ A *translation unit* refers to an implementation (.c/.cpp) file and all
+ header (.h/.hpp) files it includes. If an object or function inside
+ such a translation unit has *internal linkage*, then that specific
+ symbol is only visible to the linker within that translation unit. If
+ an object or function has *external linkage*, the linker can also see it
+ when processing other translation units. The ~static~ keyword, when used
+ in the global namespace, forces a symbol to have internal linkage. The
+ ~extern~ keyword results in a symbol having external linkage.
+
+ The compiler defaults the linkage of symbols such that:
+
+ + Non-const global variables have external linkage by default
+ + Const global variables have internal linkage by default
+ + Functions have external linkage by default
+
+** Expressions
+ An expression is a sequence of operators and their operands, that
+ specifies a computation. Expression evaluation may produce a result
+ and may generate side-effects.
+
+*** Value categories
+  Each C++ expression (an operator with its operands, a literal, a
+  variable name, etc.) is characterized by two independent properties: a
+  type and a value category. Each expression has some non-reference
+  type, and each expression belongs to exactly one of the three primary
+  value categories: prvalue, xvalue, lvalue, defined as follows:
+
+  #+begin_src dot :file value_type.png :exports none
+  digraph G {
+      nodesep=0.3;
+      ranksep=0.2;
+      margin=0.1;
+      node [shape=circle];
+      edge [arrowsize=0.8];
+      Expression -> glvalue
+      Expression -> rvalue
+      glvalue -> lvalue
+      glvalue -> xvalue
+      rvalue -> xvalue
+      rvalue -> prvalue
+  }
+  #+end_src
+
+  #+RESULTS:
+  [[file:value_type.png]]
+
+**** lvalue
+   An lvalue (so called, historically, because lvalues could appear on
+   the left-hand side of an assignment expression) designates a function
+   or an object. 
+
+   Example: If E is an expression of pointer type, then
+   *E is an lvalue expression referring to the object or function to
+   which E points. As another example, the result of calling a function
+   whose return type is an lvalue reference is an lvalue. 
+
+   Non-formal definition:
+   An lvalue (locator value) represents an object that occupies some
+   identifiable location in memory (i.e. has an address).
+
+**** xvalue
+   An xvalue (an “eXpiring” value) also refers to an object, usually near
+   the end of its lifetime (so that its resources may be moved, for
+   example). An xvalue is the result of certain kinds of expressions
+   involving rvalue references.
+
+   Example: The result of calling a function whose return type is an
+   rvalue reference is an xvalue. 
+
+   #+begin_src cpp :includes <string>
+   std::string a;
+   std::string &b = a;
+
+   a;            // lvalue       
+   b;            // lvalue
+   std::move(a); // This expression is a xvalue
+   #+end_src
+
+   #+RESULTS:
+**** prvalue
+   A prvalue (“pure” rvalue) is an rvalue that is not an xvalue. 
+
+   Example: The result of calling a function whose return type is not a
+   reference is a prvalue. The value of a literal such as 12, 7.3e5, or
+   true is also a prvalue. 
+   A prvalue (“pure” rvalue) is an rvalue that is not an xvalue. 
+
+   Example: The result of calling a function whose return type is not a
+   reference is a prvalue. The value of a literal such as 12, 7.3e5, or
+   true is also a prvalue. 
+
+**** gvalue
+   A glvalue (“generalized” lvalue) is an lvalue or an xvalue.
+**** rvalue
+   An rvalue (so called, historically, because rvalues could appear on
+   the right-hand side of an assignment expressions) is an xvalue, a
+   temporary object (12.2) or subobject thereof, or a value that is not
+   associated with an object.
