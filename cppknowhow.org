@@ -28,7 +28,7 @@
 
  #+RESULTS:
 
-*** One Definition Rule
+*** One Definition Rule (ODR)
 
   + In any translation unit, a template, type, function, or object can
     have no more than one definition. Some of these can have any number
@@ -150,3 +150,47 @@
    the right-hand side of an assignment expressions) is an xvalue, a
    temporary object (12.2) or subobject thereof, or a value that is not
    associated with an object.
+** Special member functions
+ Speical members are those menber function that the compiler can be
+ asked to automatically generate code for.
+ + Default constructor ~X();~
+ + Destoructor ~\~X();~
+ + Copy constructor ~X(const X& );~
+ + Copy assignment ~X& operator=(const X&);~
+ + Move constructor ~X(X&&);~
+ + Move assignment ~X& operator=(X&&);~
+
+ Special member functions can be:
+ + not declared
+ + implicitly declared (defaulted or deleted by the compiler)
+ + user declared (deleted, defaulted, user-defined)
+
+ What does user declared means?
+ #+begin_src cpp 
+   struct X 
+   {
+     X() {}        // user-declared
+     X();          // user-declared but compiler generates definition
+     X() = default;// user-declared 
+     X() = delete; // user declared (deleted member functions participate
+                   // in overload resolution
+   };
+ #+end_src
+  
+ Generation of special member functions:
+|                     | Compiler generated                                                                                           | 
+|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| User declared       | default constructor | destructor    | copy destructor | copy assignment | move constructor | move assignment |
+|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| nothing             | defaulted           | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| any constructor     | not declared        | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| default constructor | user declared       | defaulted     | defaulted       | defaulted       | defaulted        | defaulted       |
+| destructor          | defaulted           | user declared | defaulted*      | defaulted*      | not declared     | not declared    |
+| copy constructor    | not declared        | defaulted     | user declared   | defaulted*      | not declared     | not declared    |
+| copy assignment     | defaulted           | defaulted     | defaulted*      | user declared   | not declared     | not declared    |
+| move constructor    | not declared        | defaulted     | deleted         | deleted         | user declared    | not declared    |
+| move assignment     | defaulted           | defaulted     | deleted         | deleted         | not declared     | user declared   |
+|---------------------+---------------------+---------------+-----------------+-----------------+------------------+-----------------|
+| * = deprecated      |                     |               |                 |                 |                  |                 |
+ 
+ 
