@@ -197,3 +197,26 @@
 | * = deprecated      |                      |               |                 |                 |                  |                 |
  
  
+** Operator Precedence
+|------------+----------+---------------------------+---------------|
+| Precedence | Operator | Description               | Associativity |
+|------------+----------+---------------------------+---------------|
+|          1 | ::       | Scope resolution          | Left-to-right |
+|------------+----------+---------------------------+---------------|
+|          2 | a++, a-- | Postfix inc/dec           | Left-to-right |
+|            | type()   | Functional cast           |               |
+|            | a()      | Functional call           |               |
+|            | a[]      | Subscript                 |               |
+|            | . ->     | Member access             |               |
+|------------+----------+---------------------------+---------------|
+|          3 | ++a, --a | Prefix inc/dec            | Right-to-left |
+|            | +a, -a   | Unary plus/minus          |               |
+|            | ! ~      | Logical Not, Bitwise Not  |               |
+|            | (type)   | C-style cast              |               |
+|            | *a       | Dereference               |               |
+|            | &a       | Address-of                |               |
+|            | sizeof   | Size-of                   |               |
+|            | new      | Dynamic memory allocation |               |
+|            | delete   | Dynamic memory allocation |               |
+|------------+----------+---------------------------+---------------|
+|          4 |          |                           |               |
