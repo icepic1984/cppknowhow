@@ -49,6 +49,9 @@
   Some violations of the ODR must be diagnosed by the compiler. Other
   violations, particularly those that span translation units, are not
   required to be diagnosed.[1]
+** Argument vs Parameter
+ *Argument* is the value/variable/reference being passed in, *parameter*
+ is the receiving variable used w/in the function/block.
 ** Linkage
  A *translation unit* refers to an implementation (.c/.cpp) file and
  all header (.h/.hpp) files it includes. If an object or function
@@ -98,8 +101,7 @@
   #+RESULTS:
   [[file:value_type.png]]
 
-**** lvalue
-   An lvalue (so called, historically, because lvalues could appear on
+**** lvalue   An lvalue (so called, historically, because lvalues could appear on
    the left-hand side of an assignment expression) designates a function
    or an object. 
 
@@ -263,3 +265,49 @@
  #+RESULTS:
  |  4 | & |  2 | << | 1: | 4 |
  | (4 | & | 2) | << | 1: | 0 |
+** What happens when you call in function in c++?
+   1) Name lookup
+   2) Template Argument Deduction
+   3) Overload Resolution
+      + Overload Resoltion has rules that select the desired overload
+        by comparing the argument types agaist the parameter types.
+        + Could i possible call this function?
+        + Is this the best match?
+   4) Access control
+      + One of the last steps.
+      + Once we pick a winner we decide if the allowed to call it.
+   5) Virtual functtion
+*** Name lookup
+  + Unqualified name lookup
+  + Qualified name lookup
+  + Arguement dependent lookup 
+
+    If you supply a function argument of class type, then to find the
+    function name the compiler considers matching names in the
+    namespace containing the argument's type.
+
+    #+begin_src cpp :includes <iostream>
+      namespace A { // Begin of namespace A
+
+      struct B {}; 
+
+      void foo(B x) {
+         std::cout <<"foo(A)" << std::endl;
+      }
+      } // End of namespace A
+      
+      int main() {
+          foo(A::B()); // ADL rule applies
+      }
+
+    #+end_src 
+
+    #+RESULTS:
+    : foo(A)
+
+
+
+
+
+
+      
