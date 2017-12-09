@@ -314,9 +314,33 @@
       }
 
     #+end_src 
+    
+    Example where ADL leads to unexpected behaviour.
+    #+begin_src cpp :includes <iostream>
+    namespace A { // Begin of namespace A
+    namespace B { // Begin of namespace B
+
+    struct C {};
+    
+    void foo(C x) {std::cout << "foo()" << std::endl;} // Is called
+    } // End of namespace B
+    using B::C;
+    void foo(C x) {std::cout << "foo()" << std::endl;} // Is not called
+    
+    } // End of namespace A
+
+    int main() {
+        A::B::C c;
+        foo(c); // ADL only searches in the namespace in which the type was defined
+    }
+
+    #+end_src 
 
     #+RESULTS:
-    : foo(A)
+    : foo()
+
+    
+    
 
 
 
