@@ -196,27 +196,70 @@
 |---------------------+----------------------+---------------+-----------------+-----------------+------------------+-----------------|
 | * = deprecated      |                      |               |                 |                 |                  |                 |
  
- 
 ** Operator Precedence
-|------------+----------+---------------------------+---------------|
-| Precedence | Operator | Description               | Associativity |
-|------------+----------+---------------------------+---------------|
-|          1 | ::       | Scope resolution          | Left-to-right |
-|------------+----------+---------------------------+---------------|
-|          2 | a++, a-- | Postfix inc/dec           | Left-to-right |
-|            | type()   | Functional cast           |               |
-|            | a()      | Functional call           |               |
-|            | a[]      | Subscript                 |               |
-|            | . ->     | Member access             |               |
-|------------+----------+---------------------------+---------------|
-|          3 | ++a, --a | Prefix inc/dec            | Right-to-left |
-|            | +a, -a   | Unary plus/minus          |               |
-|            | ! ~      | Logical Not, Bitwise Not  |               |
-|            | (type)   | C-style cast              |               |
-|            | *a       | Dereference               |               |
-|            | &a       | Address-of                |               |
-|            | sizeof   | Size-of                   |               |
-|            | new      | Dynamic memory allocation |               |
-|            | delete   | Dynamic memory allocation |               |
-|------------+----------+---------------------------+---------------|
-|          4 |          |                           |               |
+ |------------+---------------+---------------------------+---------------|
+ | Precedence | Operator      | Description               | Associativity |
+ |------------+---------------+---------------------------+---------------|
+ |          1 | ::            | Scope resolution          | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          2 | a++, a--      | Postfix inc/dec           | Left-to-right |
+ |            | type()        | Functional cast           |               |
+ |            | a()           | Functional call           |               |
+ |            | a[]           | Subscript                 |               |
+ |            | . ->          | Member access             |               |
+ |------------+---------------+---------------------------+---------------|
+ |          3 | ++a, --a      | Prefix inc/dec            | Right-to-left |
+ |            | +a, -a        | Unary plus/minus          |               |
+ |            | ! ~           | Logical Not, Bitwise Not  |               |
+ |            | (type)        | C-style cast              |               |
+ |            | *a            | Dereference               |               |
+ |            | &a            | Address-of                |               |
+ |            | sizeof        | Size-of                   |               |
+ |            | new           | Dynamic memory allocation |               |
+ |            | delete        | Dynamic memory allocation |               |
+ |------------+---------------+---------------------------+---------------|
+ |          4 | .*, ->*       | Pointer-to-member         | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          5 | a*b, a/b, a%b | Mul, Div, Modul           | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          6 | a+b, a-b      | Add, Sub                  | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          7 | <<, >>        | Bitwise left shift, right | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          8 | <=>           | Three-way comparison      | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |          9 | < <=          | Relation operators        | Left-to-right |
+ |            | > >=          | Relation operators        | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         10 | == !=         | Relation operators        | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         11 | a&b           | Bitwise and               | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         12 | a^b           | Bitwise xor               | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         13 | a OR b        | Bitwise or                | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         14 | &&            | Logical and               | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         15 |               | Logical or                | Left-to-right |
+ |------------+---------------+---------------------------+---------------|
+ |         16 | a?b:c         | Ternary operator          | Right-to-left |
+ |            | throw         |                           |               |
+ |            | =             |                           |               |
+ |            | +=, -=        |                           |               |
+ |            | *=, /=, %=    |                           |               |
+ |            | <<=, >>=      |                           |               |
+ |            | &=, ^=,       |                           |               |
+ |------------+---------------+---------------------------+---------------|
+ |         17 | ,             | Comma Operator            | Left-to-right |
+
+ Example bit operator
+
+ #+begin_src cpp :includes <iostream>
+ std::cout << "4 & 2   << 1: " << (4 & 2 << 1) << std::endl;
+ std::cout << "(4 & 2) << 1: " << ((4 & 2) << 1) << std::endl;
+ #+end_src
+
+ #+RESULTS:
+ |  4 | & |  2 | << | 1: | 4 |
+ | (4 | & | 2) | << | 1: | 0 |
