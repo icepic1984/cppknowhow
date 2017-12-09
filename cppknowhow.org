@@ -101,9 +101,10 @@
   #+RESULTS:
   [[file:value_type.png]]
 
-**** lvalue   An lvalue (so called, historically, because lvalues could appear on
-   the left-hand side of an assignment expression) designates a function
-   or an object. 
+**** lvalue   
+   An lvalue (so called, historically, because lvalues could appear on
+   the left-hand side of an assignment expression) designates a
+   function or an object.
 
    Example: If E is an expression of pointer type, then
    *E is an lvalue expression referring to the object or function to
@@ -265,6 +266,7 @@
  #+RESULTS:
  |  4 | & |  2 | << | 1: | 4 |
  | (4 | & | 2) | << | 1: | 0 |
+
 ** What happens when you call in function in c++?
    1) Name lookup
    2) Template Argument Deduction
