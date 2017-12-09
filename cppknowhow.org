@@ -271,7 +271,7 @@
    1) Name lookup
    2) Template Argument Deduction
    3) Overload Resolution
-      + Overload Resoltion has rules that select the desired overload
+      + Overload Resoltion has rnules that select the desired overload
         by comparing the argument types agaist the parameter types.
         + Could i possible call this function?
         + Is this the best match?
@@ -346,5 +346,60 @@
 
 
 
-
+*** Template Arguement Deduction
+    + Dropping const when function template takes parameter by value
       
+      #+begin_src cpp
+      template <typename T>
+      void foo(T t) { t*=2; }; // const ist dropped
+      
+      template <typename T>
+      void bar(const T t) {t*=2;}; 
+
+      int main() {
+          const int i = 0;
+          foo(i);
+          bar(i); // Does not compile
+      }
+      
+
+      #+end_src
+
+      #+RESULTS:
+    + Template arguement deduction does not convert
+      
+      #+begin_src cpp :includes <functional> <iostream>
+      template<typename T>
+      void foo(T val, std::function<void (T)> f) {
+          f(val);
+      }
+      
+      // Identity template meta function
+      template <typename T>
+      struct Identity 
+      {
+          using type = T;
+      };
+      
+      template <typename T>
+      void bar(T val, typename Identity<std::function<void (T)>>::type f) {
+          f(val);
+      }
+
+      int main() {
+          std::function<void (int)> fxn = [] (int x) { std::cout << x << std::endl;};
+          // foo(1234, [](int x) { std::cout << x << std::endl;}); Fails to compile
+          foo(1234, fxn); // Ok because no conversion takes place
+          bar(1234, [] (int x) { std::cout << x << std::endl;}); // Ok because type is deduced in Idenity metafunc and then converted
+      }
+      #+end_src
+
+      #+RESULTS:
+      | 1234 |
+      | 1234 |
+
+    + When template argument deduction fail, function is not added to
+      overload resolution set
+      
+      
+    
