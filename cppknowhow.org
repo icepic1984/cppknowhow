@@ -366,6 +366,7 @@
       #+end_src
 
       #+RESULTS:
+
     + Template arguement deduction does not convert
       
       #+begin_src cpp :includes <functional> <iostream>
