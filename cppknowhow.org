@@ -322,22 +322,22 @@
 
     struct C {};
     
-    void foo(C x) {std::cout << "foo()" << std::endl;} // Is called
+    void foo(C x) {std::cout << "A::B::C::foo()" << std::endl;} // Is called
     } // End of namespace B
     using B::C;
-    void foo(C x) {std::cout << "foo()" << std::endl;} // Is not called
+    void foo(C x) {std::cout << "A::C::foo()" << std::endl;} // Is not called
     
     } // End of namespace A
 
     int main() {
-        A::B::C c;
+        A::C c;
         foo(c); // ADL only searches in the namespace in which the type was defined
     }
 
     #+end_src 
 
     #+RESULTS:
-    : foo()
+    : A::B::C::foo()
 
     
     
