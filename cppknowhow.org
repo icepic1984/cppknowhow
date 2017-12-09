@@ -404,3 +404,6 @@
       
       
     
+** Ideoms
+*** Template based configuration
+    See [[https://youtu.be/NH1Tta7purM?t=1003][Link]]
