@@ -7,6 +7,7 @@
 template <typename... T>
 struct mp_list {};
 
+// Rename 
 template <typename A, template <typename...> typename B>
 struct mp_rename_impl;
 
@@ -20,6 +21,7 @@ struct mp_rename_impl<A<T...>,B>
 template <typename A, template <typename...> typename B>
 using mp_rename = typename mp_rename_impl<A,B>::type;
 
+// Size
 template <typename L>
 struct mp_size_impl;
 
@@ -32,15 +34,19 @@ struct mp_size_impl<L<T...>>
 template <typename L>
 using mp_size = typename mp_size_impl<L>::type;
 
+// Length
 template <typename... T>
 using mp_length = std::integral_constant<std::size_t,sizeof...(T)>;
 
+// Size in terms of length
 template <typename L>
 using mp_size_2 = typename mp_rename<L,mp_length>::type;
 
+// Apply
 template <template<typename...> typename F, typename L>
 using mp_apply = typename mp_rename<L,F>::type;
 
+// Push front
 template <typename L, typename... T>
 struct mp_push_front_impl;
 
@@ -53,6 +59,7 @@ struct mp_push_front_impl<L<U...>,T...>
 template <typename L, typename... T>
 using mp_push_front = typename mp_push_front_impl<L, T...>::type;
 
+// Pop front
 template <typename L>
 struct mp_pop_front_impl;
 
@@ -65,6 +72,7 @@ struct mp_pop_front_impl<L<T1,T...>>
 template <typename L>
 using mp_pop_front = typename mp_pop_front_impl<L>::type;
 
+// Front
 template <typename L>
 struct mp_front_impl;
 
@@ -77,6 +85,7 @@ struct mp_front_impl<L<T1,T...>>
 template <typename L>
 using  mp_front = typename mp_front_impl<L>::type;
 
+// Empty
 template <typename... L>
 struct mp_empty_impl 
 {
@@ -89,11 +98,10 @@ struct mp_empty_impl<L<>...>
     using type = std::true_type;
 };
 
-
 template <typename... L>
 using mp_empty = typename mp_empty_impl<L...>::type;
 
-
+// Transform
 template <template <typename...> typename F, typename L>
 struct mp_transform_impl;
 
@@ -106,9 +114,11 @@ struct mp_transform_impl<F,L<T...>>
 template <template <typename...> typename F, typename L>
 using mp_transform = typename mp_transform_impl<F,L>::type;
 
+// Unpack
 template <typename T>
 using unpack = typename T::type;
 
+// Add pointer
 template <typename T>
 using add_pointer = T*;
 
