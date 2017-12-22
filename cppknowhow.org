@@ -338,14 +338,6 @@
 
     #+RESULTS:
     : A::B::C::foo()
-
-    
-    
-
-
-
-
-
 *** Template Arguement Deduction
     + Dropping const when function template takes parameter by value
       
@@ -402,8 +394,6 @@
     + When template argument deduction fail, function is not added to
       overload resolution set
       
-      
-    
 ** Ideoms
 *** Template based configuration
     See [[https://youtu.be/NH1Tta7purM?t=1003][Link]]
