@@ -278,7 +278,7 @@
    4) Access control
       + One of the last steps.
       + Once we pick a winner we decide if the allowed to call it.
-   5) Virtual functtion
+   5) Virtual function
 *** Name lookup
   + Unqualified name lookup
     
@@ -316,6 +316,7 @@
     #+end_src 
     
     Example where ADL leads to unexpected behaviour.
+    
     #+begin_src cpp :includes <iostream>
     namespace A { // Begin of namespace A
     namespace B { // Begin of namespace B
@@ -338,6 +339,7 @@
 
     #+RESULTS:
     : A::B::C::foo()
+
 *** Template Arguement Deduction
     + Dropping const when function template takes parameter by value
       
@@ -361,7 +363,9 @@
 
     + Template arguement deduction does not convert
       
-      #+begin_src cpp :includes <functional> <iostream>
+      #+begin_src cpp 
+      #include <iostream>
+      #include <functional>
       template<typename T>
       void foo(T val, std::function<void (T)> f) {
           f(val);
