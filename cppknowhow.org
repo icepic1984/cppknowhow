@@ -448,6 +448,7 @@
       | T&       | value() | &  |
       | const_T& | value() | &  |
       | T&&      | value() | && |
+      
     + Prevent misuse of an API.
 
 
