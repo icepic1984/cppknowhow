@@ -404,48 +404,54 @@
 ** Mixed stuff
 *** Ref-Qualifiers
     See [[https://akrzemi1.wordpress.com/2014/06/02/ref-qualifiers/][Link]]
-    #+begin_src cpp
-      template <typename T>
-      struct wrapper {
-          wrapper(T t) : m_value(std::move(t)){}
+    
+    Possible use-cases
+    
+    + To provide an optimized overload, for example to move a member
+      out of a temporary object instead of having to copy it.
+   
+      #+begin_src cpp
+        #include <iostream>
+        template <typename T>
+        struct wrapper {
+            wrapper(T t) : m_value(std::move(t)){}
 
-          T& value() & {
-              std::cout << "T& value() &" << std::endl;
-              return m_value;
-          }
+            T& value() & {
+                std::cout << " T& value() &" << std::endl;
+                return m_value;
+            }
+                          
+            const T& value() const &  {
+                std::cout << "const_T& value() &" << std::endl;
+                return m_value;
+            } 
+        public:
                   
-          const T& value() const &  {
-              std::cout << "const T& value() &" << std::endl;
-              return m_value;
-          } 
+            T&& value() && {
+                std::cout << "T&& value() &&" << std::endl;
+                return std::move(m_value);
+            }
                   
-          T&& value() && {
-              std::cout << "T&& value() &&" << std::endl;
-              return std::move(m_value);
-          }
+            T m_value;
+        };
 
-          T m_value;
-      };
-
-      int main(){
-          
-         
-      }
-
+        int main(){
+            wrapper<int> foo(10);
+            const wrapper<int> bar = wrapper<int>(10);
+            foo.value(); // Calls T& value() &
+            bar.value(); // Calls const T& value()
+            wrapper<int>(10).value(); // Calls T&& value() &&
+        }
     #+end_src cpp
-    
-void bla(const int& a)
-{std::cout << a << std::endl;}
+
+      #+RESULTS:
+      | T&       | value() | &  |
+      | const_T& | value() | &  |
+      | T&&      | value() | && |
+    + Prevent misuse of an API.
 
 
-int main(int argc, char* argv[]) {
-
     
-    dummy2 foo(10);
-    const dummy2<int> bar = dummy2<int>(10);
-    foo.value();
-    bar.value();
     
-    dummy2(20).value();
 
 
