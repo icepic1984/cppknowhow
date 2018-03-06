@@ -401,3 +401,30 @@
 ** Ideoms
 *** Template based configuration
     See [[https://youtu.be/NH1Tta7purM?t=1003][Link]]
+** Interpreting const expressions
+ It modifies what precedes it, unless nothing precedes it. When no
+ type precedes the const, you have to logically move it behind the
+ first type.
+   
+ Examples:
+  #+begin_src cpp 
+  char const* buffer; // const modifies char
+  char* const bufffer // const modifies *
+
+  // This
+  const char** buffer 
+  // is in fact:
+  char const** buffer
+  int main() {}
+  #+end_src
+   
+** Right-to-left rule
+   #+begin_src cpp 
+   int n; // declare n as int
+
+   int* p; // declare p as pointer to int;
+
+   const int *p; // declare p as pointer to const int
+   int const *p;
+
+  #+end_src
