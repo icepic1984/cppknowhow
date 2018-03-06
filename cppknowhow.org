@@ -11,19 +11,19 @@
 
  Example for function declaration and definition
  #+begin_src cpp 
- int f();             // declaration
- int f() {return 42;} // definition
- 
- int main() {}
+   int f();             // declaration
+   int f() {return 42;} // definition
+
+   int main() {}
  #+end_src
  
  Example for variable declaration and definition
  #+begin_src cpp 
- int x;             // definition
- int y = 42;        // definition and initialization
- extern int u;      // declaration 
- extern int v = 42; // definition
- int main() {}
+   int x;             // definition
+   int y = 42;        // definition and initialization
+   extern int u;      // declaration 
+   extern int v = 42; // definition
+   int main() {}
  #+end_src
 
  #+RESULTS:
@@ -125,12 +125,12 @@
    rvalue reference is an xvalue. 
 
    #+begin_src cpp :includes <string>
-   std::string a;
-   std::string &b = a;
+     std::string a;
+     std::string &b = a;
 
-   a;            // lvalue       
-   b;            // lvalue
-   std::move(a); // This expression is a xvalue
+     a;            // lvalue       
+     b;            // lvalue
+     std::move(a); // This expression is a xvalue
    #+end_src
 
    #+RESULTS:
@@ -174,11 +174,11 @@
  #+begin_src cpp 
    struct X 
    {
-     X() {}        // user-declared
-     X();          // user-declared but compiler generates definition
-     X() = default;// user-declared 
-     X() = delete; // user declared (deleted member functions participate
-                   // in overload resolution
+       X() {}        // user-declared
+       X();          // user-declared but compiler generates definition
+       X() = default;// user-declared 
+       X() = delete; // user declared (deleted member functions participate
+       // in overload resolution
    };
  #+end_src
   
@@ -305,10 +305,10 @@
       struct B {}; 
 
       void foo(B x) {
-         std::cout <<"foo(A)" << std::endl;
+          std::cout <<"foo(A)" << std::endl;
       }
       } // End of namespace A
-      
+
       int main() {
           foo(A::B()); // ADL rule applies
       }
@@ -318,22 +318,22 @@
     Example where ADL leads to unexpected behaviour.
     
     #+begin_src cpp :includes <iostream>
-    namespace A { // Begin of namespace A
-    namespace B { // Begin of namespace B
+      namespace A { // Begin of namespace A
+      namespace B { // Begin of namespace B
 
-    struct C {};
-    
-    void foo(C x) {std::cout << "A::B::C::foo()" << std::endl;} // Is called
-    } // End of namespace B
-    using B::C;
-    void foo(C x) {std::cout << "A::C::foo()" << std::endl;} // Is not called
-    
-    } // End of namespace A
+      struct C {};
 
-    int main() {
-        A::C c;
-        foo(c); // ADL only searches in the namespace in which the type was defined
-    }
+      void foo(C x) {std::cout << "A::B::C::foo()" << std::endl;} // Is called
+      } // End of namespace B
+      using B::C;
+      void foo(C x) {std::cout << "A::C::foo()" << std::endl;} // Is not called
+
+      } // End of namespace A
+
+      int main() {
+          A::C c;
+          foo(c); // ADL only searches in the namespace in which the type was defined
+      }
 
     #+end_src 
 
@@ -344,18 +344,18 @@
     + Dropping const when function template takes parameter by value
       
       #+begin_src cpp
-      template <typename T>
-      void foo(T t) { t*=2; }; // const ist dropped
-      
-      template <typename T>
-      void bar(const T t) {t*=2;}; 
+        template <typename T>
+        void foo(T t) { t*=2; }; // const ist dropped
 
-      int main() {
-          const int i = 0;
-          foo(i);
-          bar(i); // Does not compile
-      }
-      
+        template <typename T>
+        void bar(const T t) {t*=2;}; 
+
+        int main() {
+            const int i = 0;
+            foo(i);
+            bar(i); // Does not compile
+        }
+
 
       #+end_src
 
@@ -364,31 +364,31 @@
     + Template arguement deduction does not convert
       
       #+begin_src cpp 
-      #include <iostream>
-      #include <functional>
-      template<typename T>
-      void foo(T val, std::function<void (T)> f) {
-          f(val);
-      }
-      
-      // Identity template meta function
-      template <typename T>
-      struct Identity 
-      {
-          using type = T;
-      };
-      
-      template <typename T>
-      void bar(T val, typename Identity<std::function<void (T)>>::type f) {
-          f(val);
-      }
+        #include <iostream>
+        #include <functional>
+        template<typename T>
+        void foo(T val, std::function<void (T)> f) {
+            f(val);
+        }
 
-      int main() {
-          std::function<void (int)> fxn = [] (int x) { std::cout << x << std::endl;};
-          // foo(1234, [](int x) { std::cout << x << std::endl;}); Fails to compile
-          foo(1234, fxn); // Ok because no conversion takes place
-          bar(1234, [] (int x) { std::cout << x << std::endl;}); // Ok because type is deduced in Idenity metafunc and then converted
-      }
+        // Identity template meta function
+        template <typename T>
+        struct Identity 
+        {
+            using type = T;
+        };
+
+        template <typename T>
+        void bar(T val, typename Identity<std::function<void (T)>>::type f) {
+            f(val);
+        }
+
+        int main() {
+            std::function<void (int)> fxn = [] (int x) { std::cout << x << std::endl;};
+            // foo(1234, [](int x) { std::cout << x << std::endl;}); Fails to compile
+            foo(1234, fxn); // Ok because no conversion takes place
+            bar(1234, [] (int x) { std::cout << x << std::endl;}); // Ok because type is deduced in Idenity metafunc and then converted
+        }
       #+end_src
 
       #+RESULTS:
@@ -401,30 +401,79 @@
 ** Ideoms
 *** Template based configuration
     See [[https://youtu.be/NH1Tta7purM?t=1003][Link]]
+** Mixed stuff
+*** Ref-Qualifiers
+    See [[https://akrzemi1.wordpress.com/2014/06/02/ref-qualifiers/][Link]]
+    
+    Possible use-cases
+    
+    + To provide an optimized overload, for example to move a member
+      out of a temporary object instead of having to copy it.
+   
+      #+begin_src cpp
+      #include <iostream>
+      template <typename T>
+      struct wrapper {
+          wrapper(T t) : m_value(std::move(t)){}
+
+          T& value() & {
+              std::cout << " T& value() &" << std::endl;
+              return m_value;
+          }
+                        
+          const T& value() const &  {
+              std::cout << "const_T& value() &" << std::endl;
+              return m_value;
+          } 
+      public:
+                
+          T&& value() && {
+              std::cout << "T&& value() &&" << std::endl;
+              return std::move(m_value);
+          }
+                
+          T m_value;
+      };
+
+      int main(){
+          wrapper<int> foo(10);
+          const wrapper<int> bar = wrapper<int>(10);
+          foo.value(); // Calls T& value() &
+          bar.value(); // Calls const T& value()
+          wrapper<int>(10).value(); // Calls T&& value() &&
+      }
+    #+end_src cpp
+
+      #+RESULTS:
+      | T&       | value() | &  |
+      | const_T& | value() | &  |
+      | T&&      | value() | && |
+      
+    + Prevent misuse of an API.
+    
 ** Interpreting const expressions
  It modifies what precedes it, unless nothing precedes it. When no
  type precedes the const, you have to logically move it behind the
  first type.
-   
- Examples:
-  #+begin_src cpp 
-  char const* buffer; // const modifies char
-  char* const bufffer // const modifies *
 
-  // This
-  const char** buffer 
-  // is in fact:
-  char const** buffer
-  int main() {}
+ Examples:
+ #+begin_src cpp 
+ char const* buffer; // const modifies char
+ char* const bufffer // const modifies *
+
+ // This
+ const char** buffer 
+ // is in fact:
+ char const** buffer
+ int main() {}
   #+end_src
    
 ** Right-to-left rule
    #+begin_src cpp 
    int n; // declare n as int
-
    int* p; // declare p as pointer to int;
-
+    
    const int *p; // declare p as pointer to const int
    int const *p;
+   #+end_src
 
-  #+end_src
