@@ -401,6 +401,80 @@
 ** Ideoms
 *** Template based configuration
     See [[https://youtu.be/NH1Tta7purM?t=1003][Link]]
+*** Type Erasue
+    See [[https://quuxplusone.github.io/blog/2020/11/24/type-erased-printable/][Link]]
+**** UniquePrintable (owning, value-semantic, move-only)
+  #+begin_src cpp
+    #include <memory>
+    #include <ostream>
+
+    struct PrintableBase {
+        virtual void print(std::ostream& os) const = 0;
+        virtual ~PrintableBase() = default;
+    };
+
+    template<class T>
+    struct PrintableImpl : PrintableBase {
+        T t_;
+        explicit PrintableImpl(T t) : t_(std::move(t)) {}
+        void print(std::ostream& os) const override { os << t_; }
+    };
+
+    class UniquePrintable {
+        std::unique_ptr<PrintableBase> p_;
+    public:
+        template<class T>
+        UniquePrintable(T t) : p_(std::make_unique<PrintableImpl<T>>(std::move(t))) { }
+
+        friend std::ostream& operator<<(std::ostream& os, const UniquePrintable& self) {
+            self.p_->print(os);
+            return os;
+        }
+    };
+
+    #include <iostream>
+
+    void printit(UniquePrintable p) {
+        std::cout << "The printable thing was: " << p << "." << std::endl;
+    }
+
+    int main() {
+        printit(42);
+        printit("hello world");
+    }
+  #+end_src
+
+**** PrintableRef (non-owning, reference-semantic, trivially copyable)
+    #+begin_src cpp
+      #include <ostream>
+
+      class PrintableRef {
+          const void *data_;
+          void (*print_)(std::ostream&, const void *);
+      public:
+          template<class T>
+          PrintableRef(const T& t) : data_(&t), print_([](std::ostream& os, const void *data) {
+              os << *(const T*)data;
+          }) { }
+
+          friend std::ostream& operator<<(std::ostream& os, const PrintableRef& self) {
+              self.print_(os, self.data_);
+              return os;
+          }
+      };
+
+      #include <iostream>
+
+      void printit(PrintableRef p) {
+          std::cout << "The printable thing was: " << p << "." << std::endl;
+      }
+
+      int main() {
+          printit(42);
+          printit("hello world");
+      }
+    #+end_src
+
 ** Mixed stuff
 *** Ref-Qualifiers
     See [[https://akrzemi1.wordpress.com/2014/06/02/ref-qualifiers/][Link]]
