@@ -551,3 +551,32 @@
    int const *p;
    #+end_src
 
+* Compiler tricks
+** Analyze Core dumps with mingw64
+  + Register `UnhandledException` handler, which uses `dbghelp.lib` to
+    write core dump
+
+    #+begin_src cpp
+      LONG WINAPI MyUnhandledExceptionFilter(EXCEPTION_POINTERS *ExceptionInfo) {
+        std::cout << "Dump the core" << std::endl;
+        HANDLE hFile =
+            CreateFile(L"proc.dmp", GENERIC_READ | GENERIC_WRITE,
+                       FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                       CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        MINIDUMP_EXCEPTION_INFORMATION mei;
+        mei.ThreadId = GetCurrentThreadId();
+        mei.ClientPointers = TRUE;
+        mei.ExceptionPointers = ExceptionInfo;
+        MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile,
+                          MiniDumpNormal, &mei, NULL, NULL);
+
+        return EXCEPTION_EXECUTE_HANDLER;
+      }
+      //  [...]
+      int main() { SetUnhandledExceptionFilter(MyUnhandledExceptionFilter); }
+    #+end_src
+   + Compile with mingw64 and debug symbols
+   + Convert dwarf debug symbolls to pdb with [[https://github.com/rainers/cv2pdb][cv2pdb.exe]]
+     ~cv2pdb.exe test.exe~
+   + Note: Make sure you use x64 bit version of `cv2pdb.exe` for x64bit core dumps
+   + Load core dump in vs
