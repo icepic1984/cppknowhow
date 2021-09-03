@@ -530,16 +530,25 @@
  type precedes the const, you have to logically move it behind the
  first type.
 
+
  Examples:
  #+begin_src cpp 
- char const* buffer; // const modifies char
- char* const bufffer // const modifies *
+   char const* buffer; // const modifies char
+   char* const bufffer // const modifies *
 
- // This
- const char** buffer 
- // is in fact:
- char const** buffer
- int main() {}
+   // Here the const to the right of the asterisk declares ptr to be
+   // const: ptr can't be made to point to a different location, nor can
+   // it be set to null. The const to the left of the asterisk says that
+   // what ptr points to - the caracter stringj - is const, hence can't
+   // be modified.
+   const char* const ptr;
+   char const* const ptr;
+
+   // This
+   const char** buffer
+   // is in fact:
+   char const** buffer
+   int main() {}
   #+end_src
    
 ** Right-to-left rule
