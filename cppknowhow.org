@@ -541,6 +541,8 @@
    // it be set to null. The const to the left of the asterisk says that
    // what ptr points to - the caracter stringj - is const, hence can't
    // be modified.
+   //
+   // Const pointer to a const object
    const char* const ptr;
    char const* const ptr;
 
@@ -557,7 +559,10 @@
    int* p; // declare p as pointer to int;
     
    const int *p; // declare p as pointer to const int
-   int const *p;
+   int const *p; // declares p as pointer to const int
+   const char* const ptr; // declares ptr as const pointer to const char
+   char const* const ptr; //declares ptr as const pointer to const *
+
    #+end_src
 
 * Compiler tricks
