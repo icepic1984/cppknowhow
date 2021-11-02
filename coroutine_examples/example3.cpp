@@ -1,5 +1,12 @@
 // Add custom awaiteable type
 
+// What does `co_await expr` do?:
+// 1) expr is converted to an awaitable ...
+// 2) the awaiter object is obtained (from the awaitable) ...
+// 3) awaiter.await_ready() is called ...
+// 4) awaiter.await_suspend(handle) is called ...
+// 5) finally, awaiter.await_resume() is called ...
+
 #include <coroutine>
 #include <iostream>
 
@@ -10,11 +17,36 @@ auto dbg = [](const char* s) { std::cout << "Function " << s << " called.\n"; };
 template <typename PromiseType = void>
 struct suspend_always
 {
+    // Compiler checks if the coroutine should be suspended or not by
+    // executing the await_ready method. If false is returned, the
+    // coroutine should be indeed suspended by calling
+    // `await_suspend`. If true is returned, the coroutine should not
+    // be suspended. The call to `await_suspend` is skipped.
+    //
+    // Await_ready is an optimization. Why? If await_ready returns
+    // false the method await_suspend is called with the coroutine
+    // handle to it and the coroutine state is saved by copying the
+    // values from register to coroutine farme, possibly on the
+    // heap. The reason this method is provided is incase await_ready
+    // returns true and coroutine is not suspended, the cost copying
+    // the local variables to the coroutine frame can be avoided and
+    // the coroutine state will not be saved.
     bool await_ready() const noexcept
     {
         DBG;
-        return false;
+        return true;
     }
+
+    // `await_suspend` can have two return types `bool` and void.
+    //
+    // 1) void await_suspend(std::coroutine_handle<> h): This type
+    // suspends the coroutine.
+
+    // 2) bool await_suspend(std::coroutine_handle<> h): This type
+    // allows to conditionally suspend/resume the coroutine. If the
+    // value true is, returns control to the caller/resumer of the
+    // current coroutine (coroutine is suspended). If the value false,
+    // resumes the current coroutine (coroutine is not suspended).
     void await_suspend(std::coroutine_handle<PromiseType> h) const noexcept
     {
         DBG;
@@ -48,7 +80,7 @@ struct ReturnObject
             return {};
         }
 
-        suspend_always<promise_type> final_suspend()
+        suspend_always<promise_type> final_suspend() noexcept
         {
             DBG;
             return {};
