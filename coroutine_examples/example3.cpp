@@ -36,6 +36,11 @@
 // 4) awaiter.await_suspend(handle) is called ...
 // 5) finally, awaiter.await_resume() is called ...
 
+// https://itnext.io/c-20-coroutines-complete-guide-7c3fc08db89d
+// https://github.com/HappyCerberus/article-cpp20-coroutines/blob/main/simplest/simplest-fixed_instrumented.cc
+// https://lewissbaker.github.io/2017/09/25/coroutine-theory
+// https://www.scs.stanford.edu/~dm/blog/c++-coroutines.html
+
 #include <coroutine>
 #include <iostream>
 
