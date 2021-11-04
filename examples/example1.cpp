@@ -2,46 +2,13 @@
 #include <boost/stl_interfaces/iterator_interface.hpp>
 #include <Eigen/Dense>
 
-template <typename Iterator, typename Sentinel>
-struct subrange
-    : public std::ranges::view_interface<subrange<Iterator, Sentinel>>
-{
-    subrange() = default;
-    constexpr subrange(Iterator it, Sentinel s)
-        : first_(it)
-        , last_(s)
-    {
-    }
+// https://mariusbancila.ro/blog/2020/06/06/a-custom-cpp20-range-view/
+// https://stackoverflow.com/questions/58029724/create-ranges-custom-view-functions-operator-and-operator
+// https://hannes.hauswedell.net/post/2018/04/11/view1/
 
-    constexpr auto begin() const
-    {
-        return first_;
-    }
-    constexpr auto end() const
-    {
-        return last_;
-    }
-
-private:
-    Iterator first_;
-    Sentinel last_;
-};
-
-// std::view::all() returns one of several types, depending on what you pass
-// it.  Here, we're keeping it simple; all() always returns a subrange.
-template <typename Range>
-auto all(Range&& range)
-{
-    return subrange<decltype(range.begin()), decltype(range.end())>(
-        range.begin(), range.end());
-}
-
-// A template alias that denotes the type of all(r) for some Range r.
-template <typename Range>
-using all_view = decltype(all(std::declval<Range>()));
-
+template <typename Rng>
 struct matrix_iterator
-    : boost::stl_interfaces::proxy_iterator_interface<matrix_iterator,
+    : boost::stl_interfaces::proxy_iterator_interface<matrix_iterator<Rng>,
           std::random_access_iterator_tag, Eigen::Map<Eigen::Vector3f>>
 {
     constexpr matrix_iterator() noexcept
@@ -49,14 +16,14 @@ struct matrix_iterator
     {
     }
 
-    constexpr matrix_iterator(float* iter) noexcept
+    constexpr matrix_iterator(std::ranges::iterator_t<Rng> iter) noexcept
         : m_iter(iter)
     {
     }
 
     Eigen::Map<Eigen::Vector3f> operator*() const noexcept
     {
-        return Eigen::Map<Eigen::Vector3f>{m_iter};
+        return Eigen::Map<Eigen::Vector3f>(&(*m_iter));
     }
     constexpr matrix_iterator& operator+=(std::ptrdiff_t i) noexcept
     {
@@ -69,62 +36,82 @@ struct matrix_iterator
     }
 
 private:
-    float* m_iter;
+    std::ranges::iterator_t<Rng> m_iter;
 };
 
-struct matrix_view : public std::ranges::view_interface<matrix_view>
+template <typename Rng>
+struct matrix_view : public std::ranges::view_interface<matrix_view<Rng>>
 {
     matrix_view() = default;
-    matrix_view(std::vector<float>& vec)
-        : m_begin{matrix_iterator{vec.data()}}
-        , m_end{matrix_iterator{vec.data() + vec.size()}}
+    matrix_view(const matrix_view&) = default;
+    matrix_view(matrix_view&&) = default;
+    matrix_view& operator=(const matrix_view&) = default;
+    matrix_view& operator=(matrix_view&&) = default;
 
+    matrix_view(Rng rng)
+        : m_rng{rng}
     {
     }
 
-    constexpr auto begin() const
+    auto begin() const
     {
-        return m_begin;
+        return matrix_iterator<Rng>{std::begin(m_rng)};
     }
-    constexpr auto end() const
+    auto end() const
     {
-        return m_end;
+        return matrix_iterator<Rng>{std::end(m_rng)};
     }
 
 private:
-    matrix_iterator m_begin{};
-    matrix_iterator m_end{};
+    Rng m_rng;
 };
 
-// struct matrix : public std::ranges::view_interface<matrix>
-// {
-//     struct iterator
-//     matrix() = default;
+struct matrix_fn
+{
+    template <typename Rng>
+    auto operator()(Rng&& rng) const
+    {
+        return matrix_view{std::forward<Rng>(rng)};
+    }
 
-// };
+    template <typename Rng>
+    friend auto operator|(Rng&& rng, matrix_fn& c)
+        -> decltype(c(std::forward<Rng>(rng)))
+    {
+        return c(std::forward<Rng>(rng));
+    }
+
+    template <typename Rng>
+    friend auto operator|(Rng&& rng, const matrix_fn& c)
+        -> decltype(c(std::forward<Rng>(rng)))
+    {
+        return c(std::forward<Rng>(rng));
+    }
+
+    template <typename Rng>
+    friend auto operator|(Rng&& rng, matrix_fn&& c)
+        -> decltype(std::move(c)(std::forward<Rng>(rng)))
+    {
+        return std::move(c)(std::forward<Rng>(rng));
+    }
+};
+
+namespace views
+{
+constexpr matrix_fn matrix;
+}
 
 int main()
 {
-    std::vector<float> bla{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    std::vector<float> bla{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, -1.0f, -1.0f,
+        -1.0f, 9.0f, 9.0f, 9.0f};
+    auto rng = std::ranges::views::all(bla) | views::matrix
+               | std::ranges::views::filter([](auto i) {
+                     return i.x() != -1.0f && i.y() != -1.0f && i.z() != -1.0f;
+                 });
 
-    matrix_iterator start{bla.data()};
-    matrix_iterator end{bla.data() + 6};
-
-    matrix_view view{bla};
-
-    for (auto i : view)
+    for (auto i : rng)
     {
-        std::cout << i.x() << " " << i.y() << " " << i.z() << std::endl;
+        std::cout << Eigen::Transpose(i) << std::endl;
     }
-
-    std::for_each(start, end, [](auto i) {
-        std::cout << i.x() << " " << i.y() << " " << i.z() << std::endl;
-    });
-
-    Eigen::Map<Eigen::Vector3f> bup{bla.data()};
-
-    // for (auto i : all(bla))
-    // {
-    //     std::cout << i << std::endl;
-    // }
 }
