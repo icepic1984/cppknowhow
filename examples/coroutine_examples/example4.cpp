@@ -51,7 +51,7 @@ struct ReturnObject
             return {};
         }
 
-        std::suspend_never final_suspend()
+        std::suspend_never final_suspend() noexcept
         {
             DBG;
             return {};

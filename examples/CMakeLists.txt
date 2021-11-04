@@ -10,5 +10,15 @@ find_package(Boost 1.75.0 REQUIRED COMPONENTS system)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 
-add_executable(Example1 example1.cpp)
-target_link_libraries(Example1 Eigen3::Eigen)
+add_executable(CustomView CustomView.cpp)
+target_link_libraries(CustomView Eigen3::Eigen)
+
+add_executable(TypeDeduction TypeDeduction.cpp)
+
+add_executable(CoroExample1 coroutine_examples/example1.cpp)
+add_executable(CoroExample2 coroutine_examples/example2.cpp)
+add_executable(CoroExample3 coroutine_examples/example3.cpp)
+add_executable(CoroExample4 coroutine_examples/example4.cpp)
+add_executable(CoroExample5 coroutine_examples/example5.cpp)
+add_executable(CoroExample6 coroutine_examples/example6.cpp)
+add_executable(CoroExample7 coroutine_examples/example7.cpp)

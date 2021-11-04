@@ -164,16 +164,7 @@ generator<int> generate(int start, int end)
 
 int main()
 {
-    for (auto i : generate(10, 20) | std::views::drop(2))
-    {
-        std::cout << i << std::endl;
-    }
-
-    std::vector<int> bla{1, 2, 3, 4, 5};
-
-    auto v = bla | std::views::reverse | std::views::drop(2);
-
-    for (auto i : v)
+    for (auto i : generate(10, 20))
     {
         std::cout << i << std::endl;
     }
