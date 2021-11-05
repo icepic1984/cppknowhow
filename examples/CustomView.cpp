@@ -1,7 +1,7 @@
 #include <iostream>
 #include <boost/stl_interfaces/iterator_interface.hpp>
 #include <Eigen/Dense>
-
+#include <iterator>
 // https://mariusbancila.ro/blog/2020/06/06/a-custom-cpp20-range-view/
 // https://stackoverflow.com/questions/58029724/create-ranges-custom-view-functions-operator-and-operator
 // https://hannes.hauswedell.net/post/2018/04/11/view1/
@@ -108,6 +108,21 @@ int main()
 {
     std::vector<float> bla{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, -1.0f, -1.0f,
         -1.0f, 9.0f, 9.0f, 9.0f};
+
+    matrix_iterator<std::vector<float>> blup{std::begin(bla)};
+
+    // std::cout << std::is_same<std::ranges::iterator_t<std::vector<float>>,
+    //                  std::random_access_iterator>::value()
+    //           << std::endl;
+
+    static_assert(
+        std::random_access_iterator<matrix_iterator<std::vector<float>>>);
+
+    auto blupbla = bla | std::views::all | views::matrix;
+
+    static_assert(std::random_access_iterator<decltype(
+            std::declval<decltype(blupbla)>().begin())>);
+
     auto rng = bla | views::matrix | std::ranges::views::filter([](auto i) {
         return i.x() != -1.0f && i.y() != -1.0f && i.z() != -1.0f;
     });
