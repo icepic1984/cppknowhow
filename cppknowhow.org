@@ -597,3 +597,11 @@
 * Tutorials
 ** Deconstructing function pointers in a C++ template
    + [[https://devblogs.microsoft.com/oldnewthing/20200713-00/?p=103978][Link]]
+** Coroutine Tutorials
+*** Lewis Baker
+    + [[https://lewissbaker.github.io/2017/09/25/coroutine-theory][Part 1]]
+    + [[https://lewissbaker.github.io/2017/11/17/understanding-operator-co-await][Part 2]]
+    + [[https://lewissbaker.github.io/2018/09/05/understanding-the-promise-type][Part 3]]
+*** By Raymond
+    + [[https://devblogs.microsoft.com/oldnewthing/20191209-00/?p=103195][Part 1]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191210-00/?p=103197][Part 2]]
