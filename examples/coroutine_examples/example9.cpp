@@ -11,6 +11,8 @@ using namespace std;
 class task
 {
 public:
+    inline static int counter = 0;
+
     class promise_type
     {
     public:
@@ -73,6 +75,7 @@ public:
     ~task()
     {
         DBG;
+        std::cout << "Destroy Task-Object nr: " << counter-- << std::endl;
         if (coro_)
             coro_.destroy();
     }
@@ -130,6 +133,7 @@ private:
         : coro_(h)
     {
         DBG;
+        std::cout << "Create Task-Object nr: " << ++counter << std::endl;
     }
 
     coroutine_handle<promise_type> coro_;
@@ -286,7 +290,10 @@ task bar()
 int main()
 {
 
-    // What happens during call of bar?
+    // What happens?
+    // ** bar **
+    // 0) Call `bar()`
+    //
     // 1) Allocate a coroutine frame
     //
     // 2) Copy parameters and construct promise object `promise_type`
@@ -296,11 +303,93 @@ int main()
     // in a local variable.
     //
     // 4) `co_await` `promise.initial_suspend()` which evaluates to
-    // `suspend_always` and suspend the coroutine and return to the
-    // caller.
+    // `suspend_always` and suspend the coroutine and return the task
+    // object to the caller.
+    //
+    // *** start ***
+    //
+    // 5) Call `start()` which in turn is a coroutine
+    //
+    // 6) Allocate a coroutine frame, copy parameters and construct
+    // promise type.
+    //
+    // 7) Call ~promise.get_return_object()~ which constructs
+    // ~sync_wait_task~ with the current coroutine handle and saves
+    // result in a local variable.
+    //
+    // 8) `co_await` `promise.initial_suspend()` which evaluates to
+    // `suspend_never` and resumes execution.
+    //
+    // 9) Body of `start()` => `co_await task` is executed which
+    // evaluates to the construction of `awaiter`
+    //
+    // 10) Exectue `await_ready` and `await_suspend` of `awaiter`
+    // which stores current continuation in coroutine handle of
+    // promise and resumes coroutine of task, which is currently
+    // suspended at the initial suspend point of `bar`.
+    //
+    // *** bar ***
+    //
+    // 11) Body of `bar()` is executed
+    //
+    // ** foo **
+    //
+    // 12) Call `foo()` which is a coroutine
+    //
+    // 13) Allocate a coroutine frame, copy parameters and construct
+    // promise type.
+    //
+    // 14) Call ~promise.get_return_object()~ which constructs
+    // ~task~ with the current coroutine handle and saves
+    // result in a local variable.
+    //
+    // 15) `co_await` `promise.initial_suspend()` which evaluates to
+    // `suspend_always` and suspend coroutine. Return constructed task
+    // object to caller, namely `bar()`
+    //
+    // ** bar **
+    //
+    // 16) Exectue `await_ready` and `await_suspend` of `awaiter`
+    // which stores current continuation in coroutine handle of
+    // promise and resumes coroutine of task, which is currently
+    // suspended at the initial suspend point of `foo`.
+    //
+    // ** foo **
+    //
+    // 17) Call `promise_type::return_void` because `co_return` is
+    // reached.
+    //
+    // 18) Call `promise_type::final_suspend` which co_awaits on a
+    // `final_awaiter` i.e. call `await_ready` and `await_suspend`
+    // which will suspend the current coroutine but resumes the
+    // continuation which was stored in the task object priviously.
+    //
+    // 19) Call task::awaiter::await_resume() and resume in bar()
+    //
+    // **bar**
+    //
+    // 20) The bar() coroutine resumes and continues executing and
+    // eventually reaches the end of the statement containing the
+    // co_await expression at which point it calls the destructor of
+    // the temporary task object returned from foo(). The task
+    // destructor then calls the .destroy() method on foo()’s
+    // coroutine handle which then destroys the coroutine frame along
+    // with the promise object and copies of any arguments.
+    //
+    // 21) Coroutine **bar** drops of the end and calls `return_void`.
+    //
+    // 22) co_awaits the `final_suspend()` which returns the `final_awaiter`.
+    //
+    // 23) `await_ready()` and `await_suspend` is called which will
+    // suspend and resumes execution at the continuation.
+    //
+    // **sync_wait_task**
+    //
+    // 24) Resumes at `sync_wait_task` `co_await std;:move(t)` which
+    // will eventually reach the end and call the task destructor.
 
     DBG;
     // manual_executor ex;
-    auto b = bar(); //.resume();
+    auto b = sync_wait_task::start(bar());
     // b.resume();
 }
