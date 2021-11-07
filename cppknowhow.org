@@ -565,6 +565,187 @@
 
    #+end_src
 
+** Coroutines
+ There are two kinds of interfaces that are defined by the coroutines
+ TS. The Promise interface and the Awaitable interface.
+*** Promise
+  The Promise interface specifies methods for customising the behaviour
+  of the coroutine itself. The library-writer is able to customise what
+  happens when the coroutine is called, what happens when the coroutine
+  returns (either by normal means or via an unhandled exception) and
+  customise the behaviour of any ~co_await~ or ~co_yield~ expression
+  within the coroutine.
+
+  When you write a coroutine function that has a body,
+  ~<body-statements>~, which contains one of the coroutine keywords
+  (~co_return~, ~co_await~, ~co_yield~) then the body of the coroutine
+  is transformed to something (roughly) like the following:
+  #+begin_src cpp
+    {
+        co_await promise.initial_suspend();
+        try
+        {
+    //<body-statements>
+        }
+        catch (...)
+        {
+            promise.unhandled_exception();
+        }
+    FinalSuspend:
+        co_await promise.final_suspend();
+    }
+  #+end_src
+  When a coroutine function is called there are a number of steps
+  that are performed prior to executing the code in the source of the
+  coroutine body that are a little different to regular functions.
+
+  1) Allocate a coroutine frame using operator new (optional).
+  2) Copy any function parameters to the coroutine frame.
+  3) Call the constructor for the promise object of type, ~P~.
+  4) Call the ~promise.get_return_object()~ method to obtain the result
+     to return to the caller when the coroutine first suspends. Save
+     the result as a local variable.
+  5) Call the promise.initial_suspend() method and co_await the result.
+  6) When the ~co_await promise.initial_suspend()~ expression resumes
+     (either immediately or asynchronously), then the coroutine starts
+     executing the coroutine body statements that you wrote.
+
+  Some additional steps are executed when execution reaches a co_return statement:
+
+  1) Call ~promise.return_void()~ or ~promise.return_value(<expr>)~
+  2) Destroy all variables with automatic storage duration in reverse order they were created.
+  3) Call ~promise.final_suspend()~ and ~co_await~ the result.
+
+  If instead, execution leaves <body-statements> due to an unhandled exception then:
+
+  1) Catch the exception and call ~promise.unhandled_exception()~ from
+     within the catch-block.
+  2) Call ~promise.final_suspend()~ and ~co_await~ the result.
+
+  Once execution propagates outside of the coroutine body then the
+  coroutine frame is destroyed. Destroying the coroutine frame involves
+  a number of steps:
+
+  1) Call the destructor of the promise object.
+  2) Call the destructors of the function parameter copies.
+  3) Call operator delete to free the memory used by the coroutine frame (optional)
+  4) Transfer execution back to the caller/resumer.
+
+  When execution first reaches a ~<return-to-caller-or-resumer>~ point
+  inside a ~co_await~ expression, or if the coroutine runs to completion
+  without hitting a ~<return-to-caller-or-resumer>~ point, then the
+  coroutine is either suspended or destroyed and the return-object
+  previously returned from the call to ~promise.get_return_object()~ is
+  then returned to the caller of the coroutine.
+
+*** Awaitable
+ The Awaitable interface specifies methods that control the semantics
+ of a ~co_await~ expression. When a value is co_awaited, the code is
+ translated into a series of calls to methods on the awaitable object
+ that allow it to specify: whether to suspend the current coroutine,
+ execute some logic after it has suspended to schedule the coroutine
+ for later resumption, and execute some logic after the coroutine
+ resumes to produce the result of the ~co_await~ expression.
+
+ The ~co_await~ operator is a new unary operator that can be applied
+ to a value. For example: ~co_await~ someValue.
+
+ The ~co_await~ operator can only be used within the context of a
+ coroutine. This is somewhat of a tautology though, since any function
+ body containing use of the ~co_await~ operator, by definition, will be
+ compiled as a coroutine.
+
+ A type that supports the ~co_await~ operator is called an ~Awaitable~
+ type.
+
+ An Awaiter type is a type that implements the three special methods
+ that are called as part of a ~co_await~ expression: ~await_ready~,
+ ~await_suspend~ and ~await_resume~.
+
+**** Obtaining the Awaiter
+ When the compiler sees a ~co_await <expr>~ expression there are
+ actually a number of possible things it could be translated to
+ depending on the types involved.
+
+ The first thing the compiler does is generate code to obtain the
+ Awaiter object for the awaited value. There are a number of steps to
+ obtaining the awaiter object which are set out in N4680 section
+ 5.3.8(3).
+
+ If the promise type, ~P~, has a member named ~await_transform~ then
+ ~<expr>~ is first passed into a call to ~promise.await_transform(<expr>)~
+ to obtain the Awaitable value, ~awaitable~. Otherwise, if the promise
+ type does not have an ~await_transform~ member then we use the result
+ of evaluating ~<expr>~ directly as the Awaitable object, ~awaitable~.
+
+ Then, if the Awaitable object, ~awaitable~, has an applicable operator
+ ~co_await()~ overload then this is called to obtain the Awaiter
+ object. Otherwise the object, ~awaitable~, is used as the awaiter
+ object.
+ #+begin_src cpp
+   template <typename P, typename T>
+   decltype(auto) get_awaitable(P& promise, T&& expr)
+   {
+       if constexpr (has_any_await_transform_member_v<P>)
+           return promise.await_transform(static_cast<T&&>(expr));
+       else
+           return static_cast<T&&>(expr);
+   }
+
+   template <typename Awaitable>
+   decltype(auto) get_awaiter(Awaitable&& awaitable)
+   {
+       if constexpr (has_member_operator_co_await_v<Awaitable>)
+           return static_cast<Awaitable&&>(awaitable).operator co_await();
+       else if constexpr (has_non_member_operator_co_await_v<Awaitable&&>)
+           return operator co_await(static_cast<Awaitable&&>(awaitable));
+       else
+           return static_cast<Awaitable&&>(awaitable);
+   }
+ #+end_src
+ So, assuming we have encapsulated the logic for turning the ~<expr>~
+ result into an Awaiter object into the above functions then the
+ semantics of ~co_await <expr>~ can be translated (roughly) as
+ follows:
+
+ #+begin_src cpp
+   {
+       auto&& value = <expr>;
+       auto&& awaitable =
+           get_awaitable(promise, static_cast<decltype(value)>(value));
+       auto&& awaiter = get_awaiter(static_cast<decltype(awaitable)>(awaitable));
+       if (!awaiter.await_ready())
+       {
+           using handle_t = std::experimental::coroutine_handle<P>;
+
+           using await_suspend_result_t =
+               decltype(awaiter.await_suspend(handle_t::from_promise(p)));
+
+           //<suspend-coroutine>
+
+           if constexpr (std::is_void_v<await_suspend_result_t>)
+           {
+               awaiter.await_suspend(handle_t::from_promise(p));
+               //<return-to-caller-or-resumer>
+           }
+           else
+           {
+               static_assert(std::is_same_v<await_suspend_result_t, bool>,
+                   "await_suspend() must return 'void' or 'bool'.");
+
+               if (awaiter.await_suspend(handle_t::from_promise(p)))
+               {
+                   //<return-to-caller-or-resumer>
+               }
+           }
+
+           //   <resume-point>
+       }
+       return awaiter.await_resume();
+   }
+ #+end_src
+
+
 * Compiler tricks
 ** Analyze Core dumps with mingw64
   + Register `UnhandledException` handler, which uses `dbghelp.lib` to
@@ -605,3 +786,10 @@
 *** By Raymond
     + [[https://devblogs.microsoft.com/oldnewthing/20191209-00/?p=103195][Part 1]]
     + [[https://devblogs.microsoft.com/oldnewthing/20191210-00/?p=103197][Part 2]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191211-00/?p=103201][Part 3]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191212-00/?p=103207][Part 4]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191213-00/?p=103210][Part 5]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191216-00/?p=103217][Part 6]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191217-00/?p=103219][Part 7]]
+    + [[https://devblogs.microsoft.com/oldnewthing/20191218-00/?p=103221][Part 8]]
+
