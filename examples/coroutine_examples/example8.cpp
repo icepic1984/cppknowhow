@@ -108,19 +108,26 @@ private:
 
 task asyncTask()
 {
+    std::cout << "Pre asyncTask Threadid: " << std::this_thread::get_id()
+              << std::endl;
     DBG;
     co_await asyncCall();
     std::cout << "Coroutine resumed" << '\n';
+    std::cout << "Post async task Threadid: " << std::this_thread::get_id()
+              << std::endl;
     finished = true;
 }
 
 int main()
 {
+    std::cout << "Main Threadid: " << std::this_thread::get_id() << std::endl;
     auto task = asyncTask();
 
     while (!task.handle().done())
     {
+        std::cout << "Running" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     std::cout << "Done" << std::endl;
+    std::cout << "Main Threadid: " << std::this_thread::get_id() << std::endl;
 }
