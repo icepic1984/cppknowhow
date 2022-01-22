@@ -126,7 +126,7 @@ struct Executor
         {
             next_coro->resume();
         }
-        return true;
+        return false;
     }
 
 private:
@@ -190,7 +190,8 @@ struct Batcher
             {
                 return false;
             }
-            m_current_batch->m_returns = m_op(std::move(m_current_batch->m_args));
+            m_current_batch->m_returns =
+                m_op(std::move(m_current_batch->m_args));
             m_executor.submit(std::move(m_current_batch->m_pending));
             m_current_batch->m_pending.clear();
             m_current_batch = std::make_shared<Batch>();
@@ -247,21 +248,20 @@ int main()
     Batcher<float, int> f2i{e, float_2_int,
         [](const std::vector<float>& args) { return args.size() >= 7; }};
 
-    auto bla = [&](float f) ->Task {
+    auto bla = [&](float f) -> Task {
         std::cout << "With: " << f << std::endl;
-        int i = co_await f2i(i);
+        int i = co_await f2i(f);
         std::cout << "Got: " << i << std::endl;
         co_return;
     };
 
-    for(int i = 0; i < 7; ++i)
+    for (int i = 0; i < 7; ++i)
     {
         e.submit(bla(static_cast<float>(i)));
     }
 
-    while(e.run_available())
+    while (e.run_available())
     {
-        
     }
 
     // e.submit(test1());
