@@ -1,3 +1,4 @@
+// https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s
 #if !defined(__PRETTY_FUNCTION__) && !defined(__GNUC__)
 #define __PRETTY_FUNCTION__ __FUNCSIG__
 #endif
@@ -15,6 +16,11 @@
 #include <condition_variable>
 #include <type_traits>
 #include <variant>
+#include <utility>
+
+auto dbg = [](const char* s) { std::cerr << "Function " << s << " called.\n"; };
+
+#define DBG dbg(__PRETTY_FUNCTION__)
 
 template <size_t N>
 struct str
@@ -34,74 +40,132 @@ struct str
 template <size_t N>
 str(const char (&)[N]) -> str<N>;
 
-template <str name>
-struct test
-{
-    void bla()
-    {
-        std::cout << name << std::endl;
-    }
-};
-
 template <typename T>
 struct Generator
 {
-    struct promise_type;
+    struct promise_type
+    {
+        auto get_return_object() noexcept
+        {
+            DBG;
+            return Generator{*this};
+        }
 
-    Generator(Generator&& other) noexcept;
+        std::suspend_always initial_suspend() const noexcept
+        {
+            DBG;
+            return {};
+        }
 
-    Generator& operator=(Generator&& other) noexcept;
+        std::suspend_always final_suspend() const noexcept
+        {
+            DBG;
+            return {};
+        }
 
-    ~Generator();
+        // co_yield expression is turned into co_await
+        // promise.yield_value(expression) by the compiler.
+        std::suspend_always yield_value(const T& value) noexcept(
+            std::is_nothrow_copy_constructible_v<T>)
+        {
+            DBG;
+            result = value;
+            return {};
+        }
 
-    auto& operator()() const;
+        // If we want to exit the coroutine early we can use co_return.
+        // co_return expression is transformed in {expression;
+        // promise.return_void(); goto final_suspend};
+        // If you don't call co_return explicitly, it is called
+        // automatically if the coroutine falls through the body.
+        void return_void() const noexcept
+        {
+            DBG;
+        };
+
+        void unhandled_exception() noexcept(
+            std::is_nothrow_copy_constructible_v<std::exception_ptr>)
+        {
+            DBG;
+            result = std::current_exception();
+        }
+
+        T& getValue()
+        {
+            DBG;
+            if (std::holds_alternative<std::exception_ptr>(result))
+            {
+                std::rethrow_exception(std::get<std::exception_ptr>(result));
+            }
+            return std::get<T>(result);
+        }
+
+    private:
+        std::variant<std::monostate, T, std::exception_ptr> result;
+    };
+
+    Generator(Generator&& other) noexcept
+        : handle{std::exchange(other.handle, nullptr)}
+    {
+        DBG;
+    }
+
+    Generator& operator=(Generator&& other) noexcept
+    {
+        DBG;
+        if (handle)
+        {
+            handle.destory();
+        }
+        handle = std::exchange(other.handle, nullptr);
+    }
+
+    ~Generator()
+    {
+        DBG;
+        if (handle)
+        {
+            handle.destroy();
+        }
+    }
+
+    auto& operator()() const
+    {
+        handle.resume();
+        return handle.promise().getValue();
+    }
 
 private:
-    explicit Generator(promise_type& promise) noexcept;
+    explicit Generator(promise_type& promise) noexcept
+        : handle{std::coroutine_handle<promise_type>::from_promise(promise)}
+    {
+    }
 
     std::coroutine_handle<promise_type> handle;
 };
 
-struct promise_type
+Generator<int> test()
 {
-    auto get_return_object() noexcept
-    {
-        return Generator{.handle = *this};
-    }
+    DBG;
+    co_yield 10;
+//    throw std::runtime_error("no");
+    co_yield 15;
 
-    std::suspend_always initial_suspend() const noexcept
-    {
-        return {};
-    }
-
-    std::suspend_always final_suspend() const noexcept
-    {
-        return {};
-    }
-
-    // co_yield expression is turned into co_await
-    // promise.yield_value(expression) by the compiler.
-    std::suspend_always yield_value(const T& value) noexcept(
-        std::is_nothrow_copy_constructible_v<T>)
-    {
-        result = value;
-        return {};
-    }
-
-    void return_void() const noexcept {};
-
-    void unhandled_exception() noexcept(
-        std::is_nothrow_copy_constructible_v<std::exception_ptr>);
-
-    T& getValue();
-
-private:
-    std::variant<std::monostate, T, std::exception_ptr> result;
-
+    //co_return;
 }
 
 int main()
 {
-    test<"bla"> bla;
-    bla.bla();
+    const auto f = test();
+    try
+    {
+
+        std::cout << "co_yield 1" << f() << std::endl;
+        std::cout << "co_yield 2" << f() << std::endl;
+        std::cout << "co_return" << f() << std::endl;
+    }
+    catch (std::runtime_error& e)
+    {
+        std::cout << e.what() << std::endl;
+    }
 }
