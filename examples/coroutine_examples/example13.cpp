@@ -1,4 +1,5 @@
 // https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s
+// https://github.com/mpusz/mp-coro/blob/main/src/include/mp-coro/task.h
 
 // First part to implement coroutine Implemen promise type which is
 // used to communicate with the compiler backend. This is used to
@@ -18,6 +19,7 @@
 #endif
 
 #include <iostream>
+#include <fstream>
 #include <coroutine>
 #include <unordered_map>
 #include <functional>
@@ -33,6 +35,7 @@
 #include <utility>
 #include <source_location>
 #include <chrono>
+#include <filesystem>
 
 auto dbg = [](const char* file, const char* func, std::uint32_t line) {
     std::cerr << file << ":" << func << ":" << line << " called.\n";
@@ -203,87 +206,68 @@ struct Promise
     std::variant<std::monostate, T, std::exception_ptr> result;
 };
 
-template <>
-struct Promise<void>
+struct AsyncReadFile
 {
-    std::coroutine_handle<> continuation;
-    
-    std::exception_ptr m_exception;
-
-    void return_void() noexcept
+    AsyncReadFile(std::filesystem::path path)
+        : path{std::move(path)}
     {
         DBG;
     }
 
-    Task<void> get_return_object() noexcept
-    {
-        DBG;
-        return Task<void>{this};
-    }
-
-    void unhandled_exception()
-    {
-        DBG;
-        m_exception = std::current_exception();
-    }
-
-    auto initial_suspend()
-    {
-        DBG;
-        return std::suspend_never{};
-    }
-
-    auto final_suspend() noexcept
-    {
-        DBG;
-        struct FinalAwaitable
-        {
-            bool await_ready() const noexcept
-            {
-                DBG;
-                return false;
-            }
-
-            void await_suspend(
-                std::coroutine_handle<Promise<void>> thisCoro) noexcept
-            {
-                DBG;
-                auto& promise = thisCoro.promise();
-                if (promise.continuation)
-                {
-                    DBG;
-                    std::cerr << "Resume continuation" << std::endl;
-                    promise.continuation();
-                }
-            }
-
-            void await_resume() const noexcept
-            {
-            }
-        };
-        return FinalAwaitable{};
-    }
-};
-
-struct Sleep
-{
     bool await_ready() const noexcept
     {
-        return duration == duration.zero();
+        DBG;
+        return false;
     }
 
-    void await_suspend(std::coroutine_handle<> coro) const
+    void await_suspend(std::coroutine_handle<> coro)
     {
-        std::this_thread::sleep_for(duration);
-        coro();
+        auto work = [this, coro]() {
+            std::cout << std::this_thread::get_id()
+                      << " worker thread: opening file\n";
+            auto stream = std::ifstream{path};
+            std::cout << std::this_thread::get_id()
+                      << " worker thread: reading file\n";
+            result.assign(std::istreambuf_iterator<char>{stream},
+                std::istreambuf_iterator<char>{});
+            std::cout << std::this_thread::get_id()
+                      << " worker thread: resuming coro\n";
+            coro();
+            std::cout << std::this_thread::get_id()
+                      << " worker thread: exiting\n";
+        };
+        std::thread{work}.detach();
     }
 
-    void await_resume() const noexcept
+    std::string await_resume() noexcept
     {
+        return std::move(result);
     }
 
-    std::chrono::milliseconds duration;
+private:
+    std::filesystem::path path;
+    std::string result;
 };
+
+// struct Sleep
+// {
+//     bool await_ready() const noexcept
+//     {
+//         return duration == duration.zero();
+//     }
+
+//     void await_suspend(std::coroutine_handle<> coro) const
+//     {
+//         std::this_thread::sleep_for(duration);
+//         coro();
+//     }
+
+//     void await_resume() const noexcept
+//     {
+//     }
+
+//     std::chrono::milliseconds duration;
+// };
 
 Task<int> foo()
 {
@@ -300,16 +284,6 @@ Task<int> foo()
 //     co_return 43;
 // }
 
-Task<void> blup()
-{
-    co_return;
-}
-
-Task<void> bla()
-{
-    co_await blup();
-}
-
 Task<int> bar()
 {
     DBG;
@@ -321,9 +295,22 @@ Task<int> bar()
     std::cout << "bar(): about to return\n";
     co_return i + 23;
 }
+
+Task<size_t> readFile()
+{
+    std::cout << std::this_thread::get_id()
+              << " readFile(): about to read file async\n";
+    const auto result =
+        co_await AsyncReadFile{"c:/Projects/git/cppknowhow/type_list.cpp"};
+    std::cout << std::this_thread::get_id()
+              << " readFile(): about to return (size " << result.size()
+              << ")\n";
+    co_return result.size();
+}
 int main()
 {
     DBG;
-    auto task = bla();
+    auto bla = readFile();
     DBG;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
