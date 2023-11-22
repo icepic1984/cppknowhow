@@ -797,8 +797,7 @@
      c++ a coroutine is a function which has one of the follwoing
      keywords: ~co_return~, ~co_yield~, ~co_await~
    + The compiler replaces the function body of the coroutine into
-     something like this:
-
+     something like this if we only use ~co_await~
      #+begin_src cpp
        Task<int> foo()
        {
@@ -819,8 +818,9 @@
                    try
                    {
                        co_await promise.initial_suspend();
-                       // function_body;
-                       // co_return 42 is transformed into
+                       // function_body; co_return value is transformed into
+                       // promise.return_value(value) or to
+                       // promise.return_void() if value is void.
                        promise.return_value(42);
                        goto final_suspend;
                    }
@@ -844,6 +844,18 @@
            return returnObject;
        }
      #+end_src
+   + The expression ~co_await result;~ is transformed into:
+     #+begin_src cpp
+       auto awaitable{getAwaitable(result)};
+       if (!awaitable.await_read())
+       {
+           awaitable.await_suspend(thisCoroHandle);
+           // suspend coroutine
+       }
+       resume : awaitable.await_resume();
+     #+end_src
+
+     
      
      
    
