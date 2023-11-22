@@ -792,4 +792,58 @@
     + [[https://devblogs.microsoft.com/oldnewthing/20191216-00/?p=103217][Part 6]]
     + [[https://devblogs.microsoft.com/oldnewthing/20191217-00/?p=103219][Part 7]]
     + [[https://devblogs.microsoft.com/oldnewthing/20191218-00/?p=103221][Part 8]]
+*** What are coroutines?
+   + Coroutines are functions which can be suspended and resumed. In
+     c++ a coroutine is a function which has one of the follwoing
+     keywords: ~co_return~, ~co_yield~, ~co_await~
+   + The compiler replaces the function body of the coroutine into
+     something like this:
 
+     #+begin_src cpp
+       Task<int> foo()
+       {
+           co_return 43;
+       }
+       // into
+
+       Task<int> foo
+       {
+           // Definition of the coroutine frame
+           struct CoroutineFrame
+           {
+               Task<int>::promise_type promise;
+               bool initial_await_resume_called = false;
+               int state = 0;
+               void operator()()
+               {
+                   try
+                   {
+                       co_await promise.initial_suspend();
+                       // function_body;
+                       // co_return 42 is transformed into
+                       promise.return_value(42);
+                       goto final_suspend;
+                   }
+                   catch (...)
+                   {
+                       // If coroutine fail to initialize we throw exception
+                       if (!initial_await_resume_called)
+                           throw;
+                       // If exception happens inside the body, catch it here
+                       // and call ~unhandled_exception~ on the promise type.
+                       promise.unhandled_exception();
+                   }
+               final_suspend:
+                   co_await promise.final_suspend();
+               }
+           };
+           // Allocate the coroutine frame
+           auto coroutineFrame = new CoroutineFrame;
+           auto returnObject{coroutineFrame->promise.get_return_object()};
+           (*coroFrame)();
+           return returnObject;
+       }
+     #+end_src
+     
+     
+   
