@@ -1,4 +1,5 @@
 // https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s
+// https://www.youtube.com/watch?v=7sKUAyWXNHA
 // https://github.com/mpusz/mp-coro/blob/main/src/include/mp-coro/task.h
 
 // First part to implement coroutine Implemen promise type which is
@@ -36,9 +37,10 @@
 #include <source_location>
 #include <chrono>
 #include <filesystem>
+#include <future>
 
 auto dbg = [](const char* file, const char* func, std::uint32_t line) {
-    std::cerr << file << ":" << func << ":" << line << " called.\n";
+    std::cerr << "tid: " << std::this_thread::get_id()<< " "<< file << ":" << func << ":" << line << " called.\n";
 };
 
 #define DBG                                                                    \
@@ -67,6 +69,8 @@ template <typename T>
 struct [[nodiscard]] Task
 {
     using promise_type = Promise<T>;
+
+    using value_type = T;
 
     Task() = default;
 
@@ -154,7 +158,8 @@ struct Promise
                 {
                     DBG;
                     std::cerr << "Resume continuation" << std::endl;
-                    promise.continuation();
+                    std::cout << "Resume continuation" << std::endl;
+                    //promise.continuation();
                 }
             }
 
@@ -222,6 +227,7 @@ struct AsyncReadFile
 
     void await_suspend(std::coroutine_handle<> coro)
     {
+        DBG;
         auto work = [this, coro]() {
             std::cout << std::this_thread::get_id()
                       << " worker thread: opening file\n";
@@ -241,6 +247,7 @@ struct AsyncReadFile
 
     std::string await_resume() noexcept
     {
+        DBG;
         return std::move(result);
     }
 
@@ -249,33 +256,85 @@ private:
     std::string result;
 };
 
-// struct Sleep
-// {
-//     bool await_ready() const noexcept
-//     {
-//         return duration == duration.zero();
-//     }
+template <typename T>
+struct SyncWaitImpl
+{
+    struct promise_type
+    {
+        SyncWaitImpl get_return_object()
+        {
+            DBG;
+            return {promise.get_future()};
+        }
+        std::suspend_never initial_suspend() noexcept
+        {
+            DBG;
+            return {};
+        }
 
-//     void await_suspend(std::coroutine_handle<> coro) const
-//     {
-//         std::this_thread::sleep_for(duration);
-//         coro();
-//     }
+        std::suspend_never final_suspend() noexcept
+        {
+            DBG;
+            return {};
+        }
 
-//     void await_resume() const noexcept
-//     {
-//     }
+        void return_value(T&& value)
+        {
+            DBG;
+            promise.set_value(std::move(value));
+        }
 
-//     std::chrono::milliseconds duration;
-// };
+        void unhandled_exception()
+        {
+            DBG;
+            promise.set_exception(std::current_exception());
+        }
+
+        std::promise<T> promise;
+    };
+
+    std::future<T> result;
+};
+
+struct Sleep
+{
+    bool await_ready() const noexcept
+    {
+        return duration == duration.zero();
+    }
+
+    void await_suspend(std::coroutine_handle<> coro) const
+    {
+        std::this_thread::sleep_for(duration);
+        coro();
+    }
+
+    void await_resume() const noexcept
+    {
+    }
+
+    std::chrono::milliseconds duration;
+};
+
+Task<int> foobar()
+{
+    std::cout << "bla" << std::endl;
+    co_await std::suspend_always{};
+
+    co_return 42;
+}
 
 Task<int> foo()
 {
     DBG;
     std::cout << "foo(): about to return" << std::endl;
     DBG;
-    co_return 42;
+    const auto bla = foobar();
+    const auto blup = foobar();
+    co_await bla;
+    co_await blup;
     DBG;
+    co_return 10;
 }
 
 // Task<int> sleepy()
@@ -296,6 +355,64 @@ Task<int> bar()
     co_return i + 23;
 }
 
+Task <int> test2()
+{
+    std::cout << "First suspend test2" << std::endl;
+    co_await std::suspend_always{};
+    std::cout << "Second suspend test2" << std::endl;
+    //co_await std::suspend_always{};
+    co_return 10;
+}
+
+
+Task<int> test()
+{
+    auto bla = test2();
+    std::cout << "First suspend test" << std::endl;
+    co_await bla;
+    std::cout << "Second suspend test" << std::endl;
+    //co_await bla;
+    co_return 20;
+
+}
+
+template <typename T>
+struct ResultOfWaitImpl
+{
+    // using type = decltype((std::declval<T>().operator co_wait()).getResult());
+    using value_type = typename std::remove_reference<T>::type::value_type;
+    
+};
+
+template <typename T>
+using ResultOfWait = typename ResultOfWaitImpl<T>::value_type;
+
+template<typename T>
+SyncWaitImpl<typename ResultOfWaitImpl<T>::value_type> syncWaitImpl(T&& task)
+{
+    co_return co_await std::forward<T>(task);
+}
+
+template <typename T>
+auto syncWait(T&& task)
+{
+    return syncWaitImpl(std::forward<T>(task)).result.get();
+}
+
+// SyncWaitImpl<size_t> syncWaitImpl(Task<size_t>& task)
+// {
+//     DBG;
+//     co_return co_await task;
+// }
+
+// //template <typename T>
+// auto syncWait(Task<size_t>& task)
+// {
+//     DBG;
+//     return syncWaitImpl(task).result.get();
+// }
+
+
 Task<size_t> readFile()
 {
     std::cout << std::this_thread::get_id()
@@ -310,7 +427,10 @@ Task<size_t> readFile()
 int main()
 {
     DBG;
-    auto bla = readFile();
+    //auto bla = readFile();
+    //syncWait(bla);
+    //auto bla = bar();
+    auto bla = test();
     DBG;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    //  std::this_thread::sleep_for(std::chrono::seconds(1));
 }
