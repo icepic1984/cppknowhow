@@ -953,6 +953,79 @@
              return awaiter.await_resume();
          }
        #+end_src
+   + Coroutine handle:
+     + Represents a non-owning handle to the coroutine frame and can
+       be used to resume execution of the coroutine or to destroy the
+       coroutine frame. It can also be used to get access to the
+       coroutine’s promise object.
+     + Interface of the handle type looks like this:
+       #+begin_src cpp
+         namespace std::experimental
+         {
+         template <typename Promise>
+         struct coroutine_handle;
+
+         template <>
+         struct coroutine_handle<void>
+         {
+             bool done() const;
+
+             // Calling .resume() on a handle will reactivate a suspended
+             // coroutine at the <resume-point>. The call to .resume() will
+             // return when the coroutine next hits a
+             // <return-to-caller-or-resumer> point.
+             void resume();
+
+             //The .destroy() method destroys the coroutine frame, calling the
+             //destructors of any in-scope variables and freeing memory used by
+             //the coroutine frame. Should normally be managed by RAII type and
+             //not called manually.
+             void destroy();
+
+             void* address() const;
+             static coroutine_handle from_address(void* address);
+         };
+
+         template <typename Promise>
+         struct coroutine_handle : coroutine_handle<void>
+         {
+             //The .promise() method returns a reference to the coroutine’s
+             //promise object. However, like .destroy(), it is generally only
+             //useful if you are authoring coroutine promise types. You should
+             //consider the coroutine’s promise object as an internal
+             //implementation detail of the coroutine. For most Normally
+             //Awaitable types you should use coroutine_handle<void> as the
+             //parameter type to the await_suspend() method instead of
+             //coroutine_handle<Promise>.
+             Promise& promise() const;
+
+             //The coroutine_handle<P>::from_promise(P& promise) function
+             //allows reconstructing the coroutine handle from a reference to
+             //the coroutine’s promise object. Note that you must ensure that
+             //the type, P, exactly matches the concrete promise type used for
+             //the coroutine frame; attempting to construct a
+             //coroutine_handle<Base> when the concrete promise type is Derived
+             //can lead to undefined behaviour.
+             static coroutine_handle from_promise(Promise& promise);
+
+             // The .address() / from_address() functions allow converting a
+             // coroutine handle to/from a void* pointer. This is primarily
+             // intended to allow passing as a ‘context’ parameter into
+             // existing C-style APIs, so you might find it useful in
+             // implementing Awaitable types in some circumstances. However, in
+             // most cases I’ve found it necessary to pass additional
+             // information through to callbacks in this ‘context’ parameter so
+             // I generally end up storing the coroutine_handle in a struct and
+             // passing a pointer to the struct in the ‘context’ parameter
+             // rather than using the .address() return-value.
+             static coroutine_handle from_address(void* address);
+         };
+         } // namespace std::experimental
+       #+end_src   
+     
+
+
+
 
 
    + The compiler replaces the function body of the coroutine into
