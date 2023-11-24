@@ -1,10 +1,8 @@
 // https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s
 #pragma once
 
-#if !defined(__PRETTY_FUNCTION__) && !defined(__GNUC__)
-#define __PRETTY_FUNCTION__ __FUNCSIG__
-#endif
 
+#include "trace.hpp"
 #include <iostream>
 #include <coroutine>
 #include <thread>
@@ -14,12 +12,6 @@
 #include <utility>
 #include <atomic>
 #include <future>
-
-auto dbg = [](const char* s) { std::cerr << "Function " << s << " called.\n"; };
-
-//#define DBG dbg(__PRETTY_FUNCTION__)
-
-#define DBG 0
 
 enum class State
 {
