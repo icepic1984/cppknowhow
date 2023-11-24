@@ -806,7 +806,7 @@
        happens when the coroutine returns (either by normal means or
        via an unhandled exception) and customise the behaviour of any
        co_await or co_yield expression within the coroutine.
-     + The *Awaitable* interface specifies methods that control the
+     + The *Awaitable* interface specifies methods that control thea
        semantics of a co_await expression. When a value is co_awaited,
        the code is translated into a series of calls to methods on the
        awaitable object that allow it to specify: whether to suspend
@@ -814,219 +814,350 @@
        suspended to schedule the coroutine for later resumption, and
        execute some logic after the coroutine resumes to produce the
        result of the co_await expression.
-   + Operator ~co_await~
-     + A type that supports the co_await operator is called an
-       Awaitable type.
-     + Note that whether or not the co_await operator can be applied
-       to a type can depend on the context in which the co_await
-       expression appears. The promise type used for a coroutine can
-       alter the meaning of a co_await expression within the coroutine
-       via its ~await_transform~ method (more on this later).
-     + An Awaiter type is a type that implements the three special
-       methods that are called as part of a co_await expression:
-       ~await_ready~, ~await_suspend~ and ~await_resume~.
-     + If the promise type, ~P~ has a member named ~await_transform~
-       then <expr> is first passed into a call to
-       ~promise.await_transform(<expr>)~ to obtain the ~Awaitable~
-       value, ~awaitable~. Otherwise, if the promise type does not
-       have an ~await_transform~ member then we use the result of
-       evaluating ~<expr>~ directly as the ~Awaitable~ object,
-       ~awaitable~. Then, if the ~Awaitable~ object, ~awaitable~, has
-       an applicable ~operator co_await()~ overload then this is
-       called to obtain the Awaiter object. Otherwise the object,
-       ~awaitable~, is used as the awaiter object.
-     + Rules above as source:
+   + *Awaitable* types
+     + Operator ~co_await~
+       + A type that supports the co_await operator is called an
+         Awaitable type.
+       + Note that whether or not the co_await operator can be applied
+         to a type can depend on the context in which the co_await
+         expression appears. The promise type used for a coroutine can
+         alter the meaning of a co_await expression within the coroutine
+         via its ~await_transform~ method (more on this later).
+       + An Awaiter type is a type that implements the three special
+         methods that are called as part of a co_await expression:
+         ~await_ready~, ~await_suspend~ and ~await_resume~.
+       + If the promise type, ~P~ has a member named ~await_transform~
+         then <expr> is first passed into a call to
+         ~promise.await_transform(<expr>)~ to obtain the ~Awaitable~
+         value, ~awaitable~. Otherwise, if the promise type does not
+         have an ~await_transform~ member then we use the result of
+         evaluating ~<expr>~ directly as the ~Awaitable~ object,
+         ~awaitable~. Then, if the ~Awaitable~ object, ~awaitable~, has
+         an applicable ~operator co_await()~ overload then this is
+         called to obtain the Awaiter object. Otherwise the object,
+         ~awaitable~, is used as the awaiter object.
+       + Rules above as source:
+         #+begin_src cpp
+           template <typename P, typename T>
+           decltype(auto) get_awaitable(P& promise, T&& expr)
+           {
+               if constexpr (has_any_await_transform_member_v<P>)
+                   return promise.await_transform(static_cast<T&&>(expr));
+               else
+                   return static_cast<T&&>(expr);
+           }
+
+           template <typename Awaitable>
+           decltype(auto) get_awaiter(Awaitable&& awaitable)
+           {
+               if constexpr (has_member_operator_co_await_v<Awaitable>)
+                   return static_cast<Awaitable&&>(awaitable).operator co_await();
+               else if constexpr (has_non_member_operator_co_await_v<Awaitable&&>)
+                   return operator co_await(static_cast<Awaitable&&>(awaitable));
+               else
+                   return static_cast<Awaitable&&>(awaitable);
+           }
+
+           // Assumging the logic for turning the <expr> result into an Awaiter
+           // object is encapsulated in the functions above, the semantics of the
+           // co_await <expr> can be translated into this:
+
+           {
+               auto&& value = <expr>;
+               auto&& awaitable =
+                   get_awaitable(promise, static_cast<decltype(value)>(value));
+               auto&& awaiter = get_awaiter(static_cast<decltype(awaitable)>(awaitable));
+
+               // The purpose of the await_ready() method is to allow you to
+               // avoid the cost of the <suspend-coroutine> operation in cases
+               // where it is known that the operation will complete
+               // synchronously without needing to suspend.
+               if (!awaiter.await_ready())
+               {
+                   using handle_t = std::experimental::coroutine_handle<P>;
+
+                   using await_suspend_result_t =
+                       decltype(awaiter.await_suspend(handle_t::from_promise(p)));
+
+                   // At the <suspend-coroutine> point the compiler generates some
+                   // code to save the current state of the coroutine and prepare
+                   // it for resumption. This includes storing the location of the
+                   //<resume-point> as well as spilling any values currently held
+                   // in registers into the coroutine frame memory.
+
+                   //<suspend-coroutine>
+
+                   // The current coroutine is considered suspended after the
+                   //<suspend-coroutine> operation completes. The first point at
+                   // which you can observe the suspended coroutine is inside the
+                   // call to await_suspend(). Once the coroutine is suspended it
+                   // is then able to be resumed or destroyed.
+
+                   // It is the responsibility of the await_suspend() method to
+                   // schedule the coroutine for resumption (or destruction) at
+                   // some point in the future once the operation has
+                   // completed.
+                   if constexpr (std::is_void_v<await_suspend_result_t>)
+                   {
+                       // The void-returning version of await_suspend()
+                       // unconditionally transfers execution back to the
+                       // caller/resumer of the coroutine when the call to
+                       // await_suspend() returns
+                       awaiter.await_suspend(handle_t::from_promise(p));
+
+                       // At the <return-to-caller-or-resumer> point execution is
+                       //transferred back to the caller or resumer, popping the
+                       //local stack frame but keeping the coroutine frame alive.
+
+                       //<return-to-caller-or-resumer>
+                   }
+                   else
+                   {
+                       // the bool-returning version allows the awaiter object to
+                       // conditionally resume the coroutine immediately without
+                       // returning to the caller/resumer. Can be useful in cases
+                       // where the awaiter might start an async operation that
+                       // can sometimes complete synchronously. In the cases where
+                       // it completes synchronously, the await_suspend() method
+                       // can return false to indicate that the coroutine should
+                       // be immediately resumed and continue execution.
+
+                       // Note that returning false from await_suspend() counts as
+                       // scheduling the coroutine for immediate resumption on the current
+                       // thread.
+                       static_assert(std::is_same_v<await_suspend_result_t, bool>,
+                           "await_suspend() must return 'void' or 'bool'.");
+
+                       if (awaiter.await_suspend(handle_t::from_promise(p)))
+                       {
+                           // At the <return-to-caller-or-resumer> point
+                           // execution is transferred back to the caller or
+                           // resumer, popping the local stack frame but keeping
+                           // the coroutine frame alive.
+
+                           //<return-to-caller-or-resumer>
+                       }
+                   }
+
+                   // When (or if) the suspended coroutine is eventually resumed
+                   // then the execution resumes at the
+                   // <resume-point>. ie. immediately before the await_resume()
+                   // method is called to obtain the result of the operation.
+
+                   //<resume-point>
+               }
+
+               // The return-value of the await_resume() method call becomes the
+               // result of the co_await expression. The await_resume() method
+               // can also throw an exception in which case the exception
+               // propagates out of the co_await expression.
+               return awaiter.await_resume();
+           }
+         #+end_src
+     + Coroutine handle:
+       + Represents a non-owning handle to the coroutine frame and can
+         be used to resume execution of the coroutine or to destroy the
+         coroutine frame. It can also be used to get access to the
+         coroutine’s promise object.
+       + Interface of the handle type looks like this:
+         #+begin_src cpp
+           namespace std::experimental
+           {
+           template <typename Promise>
+           struct coroutine_handle;
+
+           template <>
+           struct coroutine_handle<void>
+           {
+               bool done() const;
+
+               // Calling .resume() on a handle will reactivate a suspended
+               // coroutine at the <resume-point>. The call to .resume() will
+               // return when the coroutine next hits a
+               // <return-to-caller-or-resumer> point.
+               void resume();
+
+               //The .destroy() method destroys the coroutine frame, calling the
+               //destructors of any in-scope variables and freeing memory used by
+               //the coroutine frame. Should normally be managed by RAII type and
+               //not called manually.
+               void destroy();
+
+               void* address() const;
+               static coroutine_handle from_address(void* address);
+           };
+
+           template <typename Promise>
+           struct coroutine_handle : coroutine_handle<void>
+           {
+               //The .promise() method returns a reference to the coroutine’s
+               //promise object. However, like .destroy(), it is generally only
+               //useful if you are authoring coroutine promise types. You should
+               //consider the coroutine’s promise object as an internal
+               //implementation detail of the coroutine. For most Normally
+               //Awaitable types you should use coroutine_handle<void> as the
+               //parameter type to the await_suspend() method instead of
+               //coroutine_handle<Promise>.
+               Promise& promise() const;
+
+               //The coroutine_handle<P>::from_promise(P& promise) function
+               //allows reconstructing the coroutine handle from a reference to
+               //the coroutine’s promise object. Note that you must ensure that
+               //the type, P, exactly matches the concrete promise type used for
+               //the coroutine frame; attempting to construct a
+               //coroutine_handle<Base> when the concrete promise type is Derived
+               //can lead to undefined behaviour.
+               static coroutine_handle from_promise(Promise& promise);
+
+               // The .address() / from_address() functions allow converting a
+               // coroutine handle to/from a void* pointer. This is primarily
+               // intended to allow passing as a ‘context’ parameter into
+               // existing C-style APIs, so you might find it useful in
+               // implementing Awaitable types in some circumstances. However, in
+               // most cases I’ve found it necessary to pass additional
+               // information through to callbacks in this ‘context’ parameter so
+               // I generally end up storing the coroutine_handle in a struct and
+               // passing a pointer to the struct in the ‘context’ parameter
+               // rather than using the .address() return-value.
+               static coroutine_handle from_address(void* address);
+           };
+           } // namespace std::experimental
+         #+end_src
+     + Synchronisation free async code
+       + One of the powerful design-features of the co_await operator is
+         the ability to execute code after the coroutine has been
+         suspended but before execution is returned to the
+         caller/resumer.
+       + This allows an Awaiter object to initiate an async operation
+         after the coroutine is already suspended, passing the
+         coroutine_handle of the suspended coroutine to the operation
+         which it can safely resume when the operation completes
+         (potentially on another thread) without any additional
+         synchronisation required.
+       + *Carefull*: If the coroutine is passed to another thread it
+         might be resumed *before* the ~await_suspend~ returns. The
+         first thing the coroutine will do when it resumes is call
+         ~await_resume~ to get the result and destruct the awaiter
+         object (this pointer of the ~await_suspend~). So within the
+         ~await_suspend~ method, once it is possible for the coroutine
+         to be resumed concurrently on another thread, you need to make
+         sure that you avoid accessing ~this~ or the coroutines
+         ~.promise()~ object because both could already be destroyed. In
+         general, the only things that are safe to access after the
+         operation is started and the coroutine is scheduled for
+         resumption are local variables within ~await_suspend()~.
+   + *Promise* types
+     + The *Promise* object defines and controls the behaviour of the
+       coroutine itself by implementing methods that are called at
+       specific points during execution of the coroutine.
+
+     + When you write a coroutine function that has a body,
+       <body-statements>, which contains one of the coroutine keywords
+       (co_return, co_await, co_yield) then the body of the coroutine
+       is transformed to something (roughly) like the following:
+
        #+begin_src cpp
-         template <typename P, typename T>
-         decltype(auto) get_awaitable(P& promise, T&& expr)
          {
-             if constexpr (has_any_await_transform_member_v<P>)
-                 return promise.await_transform(static_cast<T&&>(expr));
-             else
-                 return static_cast<T&&>(expr);
-         }
-
-         template <typename Awaitable>
-         decltype(auto) get_awaiter(Awaitable&& awaitable)
-         {
-             if constexpr (has_member_operator_co_await_v<Awaitable>)
-                 return static_cast<Awaitable&&>(awaitable).operator co_await();
-             else if constexpr (has_non_member_operator_co_await_v<Awaitable&&>)
-                 return operator co_await(static_cast<Awaitable&&>(awaitable));
-             else
-                 return static_cast<Awaitable&&>(awaitable);
-         }
-
-         // Assumging the logic for turning the <expr> result into an Awaiter
-         // object is encapsulated in the functions above, the semantics of the
-         // co_await <expr> can be translated into this:
-
-         {
-             auto&& value = <expr>;
-             auto&& awaitable =
-                 get_awaitable(promise, static_cast<decltype(value)>(value));
-             auto&& awaiter = get_awaiter(static_cast<decltype(awaitable)>(awaitable));
-
-             // The purpose of the await_ready() method is to allow you to
-             // avoid the cost of the <suspend-coroutine> operation in cases
-             // where it is known that the operation will complete
-             // synchronously without needing to suspend.
-             if (!awaiter.await_ready())
+             co_await promise.initial_suspend();
+             try
              {
-                 using handle_t = std::experimental::coroutine_handle<P>;
-
-                 using await_suspend_result_t =
-                     decltype(awaiter.await_suspend(handle_t::from_promise(p)));
-
-                 // At the <suspend-coroutine> point the compiler generates some
-                 // code to save the current state of the coroutine and prepare
-                 // it for resumption. This includes storing the location of the
-                 //<resume-point> as well as spilling any values currently held
-                 // in registers into the coroutine frame memory.
-
-                 //<suspend-coroutine>
-
-                 // The current coroutine is considered suspended after the
-                 //<suspend-coroutine> operation completes. The first point at
-                 // which you can observe the suspended coroutine is inside the
-                 // call to await_suspend(). Once the coroutine is suspended it
-                 // is then able to be resumed or destroyed.
-
-                 // It is the responsibility of the await_suspend() method to
-                 // schedule the coroutine for resumption (or destruction) at
-                 // some point in the future once the operation has
-                 // completed.
-                 if constexpr (std::is_void_v<await_suspend_result_t>)
-                 {
-                     // The void-returning version of await_suspend()
-                     // unconditionally transfers execution back to the
-                     // caller/resumer of the coroutine when the call to
-                     // await_suspend() returns
-                     awaiter.await_suspend(handle_t::from_promise(p));
-
-                     // At the <return-to-caller-or-resumer> point execution is
-                     //transferred back to the caller or resumer, popping the
-                     //local stack frame but keeping the coroutine frame alive.
-
-                     //<return-to-caller-or-resumer>
-                 }
-                 else
-                 {
-                     // the bool-returning version allows the awaiter object to
-                     // conditionally resume the coroutine immediately without
-                     // returning to the caller/resumer. Can be useful in cases
-                     // where the awaiter might start an async operation that
-                     // can sometimes complete synchronously. In the cases where
-                     // it completes synchronously, the await_suspend() method
-                     // can return false to indicate that the coroutine should
-                     // be immediately resumed and continue execution.
-
-                     // Note that returning false from await_suspend() counts as
-                     // scheduling the coroutine for immediate resumption on the current
-                     // thread.
-                     static_assert(std::is_same_v<await_suspend_result_t, bool>,
-                         "await_suspend() must return 'void' or 'bool'.");
-
-                     if (awaiter.await_suspend(handle_t::from_promise(p)))
-                     {
-                         // At the <return-to-caller-or-resumer> point
-                         // execution is transferred back to the caller or
-                         // resumer, popping the local stack frame but keeping
-                         // the coroutine frame alive.
-
-                         //<return-to-caller-or-resumer>
-                     }
-                 }
-
-                 // When (or if) the suspended coroutine is eventually resumed
-                 // then the execution resumes at the
-                 // <resume-point>. ie. immediately before the await_resume()
-                 // method is called to obtain the result of the operation.
-
-                 //<resume-point>
+                 //<body-statements>
              }
-
-             // The return-value of the await_resume() method call becomes the
-             // result of the co_await expression. The await_resume() method
-             // can also throw an exception in which case the exception
-             // propagates out of the co_await expression.
-             return awaiter.await_resume();
+             catch (...)
+             {
+                 promise.unhandled_exception();
+             }
+         FinalSuspend:
+             co_await promise.final_suspend();
          }
        #+end_src
-   + Coroutine handle:
-     + Represents a non-owning handle to the coroutine frame and can
-       be used to resume execution of the coroutine or to destroy the
-       coroutine frame. It can also be used to get access to the
-       coroutine’s promise object.
-     + Interface of the handle type looks like this:
+
+       When a coroutine function is called there are a number of steps
+       that are performed prior to executing the code in the source of
+       the coroutine body that are a little different to regular
+       functions.
+
+       Here is a summary of the steps 
+
+       1) Allocate a coroutine frame using operator new (optional).
+       2) Copy any function parameters to the coroutine frame.
+       3) Call the constructor for the promise object of type, P.
+       4) Call the promise.get_return_object() method to obtain the
+          result to return to the caller when the coroutine first
+          suspends. Save the result as a local variable.
+       5) Call the ~promise.initial_suspend()~ method and co_await the
+          result.
+       6) When the co_await promise.initial_suspend() expression
+         resumes (either immediately or asynchronously), then the
+         coroutine starts executing the coroutine body statements that
+         you wrote.
+
+       Some additional steps are executed when execution reaches a
+       co_return statement:
+
+     + Call ~promise.return_void()~ or ~promise.return_value(<expr>)~
+       1) Destroy all variables with automatic storage duration in
+          reverse order they were created.
+       2) Call ~promise.final_suspend()~ and co_await the result
+   + Notes:
+     + Note that it is undefined behaviour to resume() a coroutine
+       that is suspended at the final_suspend point. The only thing
+       you can do with a coroutine suspended here is destroy() it.
+     + What happens if a coroutine is called on a task
+       object. Consider this
        #+begin_src cpp
-         namespace std::experimental
+         task foo()
          {
-         template <typename Promise>
-         struct coroutine_handle;
+             co_return;
+         }
 
-         template <>
-         struct coroutine_handle<void>
+         task bar()
          {
-             bool done() const;
+             co_await foo();
+         }
+       #+end_src
+       1) Bar coroutine calls functin foo (from caller's perspective a
+          coroutine is just an normal function call).
+       2) The invocation of ~foo()~, the coroutine, performs the
+          following steps:
+          1) Allocate storage for a coroutine frame
+          2) Copies parameters into the coroutine frame
+          3) Constructs the promise object in the coroutine frame
+          4) Calls ~promise.get_return_object()~ to get the
+             return-value for ~foo()~. This produces the ~task~ object
+             that will be returned, initialising it with a
+             ~std::coroutine_handle~ that refers to the coroutine
+             frame that was just created.
+          5) Suspends the exectuion of the coroutine (in case
+             ~initial_suspend~ returns ~std::always_suspend~) at the
+             initial suspend point (i.e the open curly brace).
+          6) Returns the task object to ~bar()~
+       3) The ~bar()~ coroutine evaluates the ~co_await~ expression on
+          the ~task~ object returned from ~foo~.
+          1) The ~bar()~ coroutine suspends and then calls the
+             ~await_suspend()~ method on the returned task, passing it
+             the ~std::coroutine_handle~ that refers to the ~bar()~'s
+             coroutine frame.
+          2) The ~await_suspend~ method stores ~bars~ coroutine handle
+             in ~foo()~ promise object and then resumes the ~foo~
+             coroutine by calling ~.resume~ on ~foo()~
+             ~std::coroutine_handle~.
+       4) The ~foo~ coroutine executes and runs to completion
+          synchronously.
+       5) The ~foo~ suspends at the final suspend point (if specified
+          by the promise) which is the closing curly brace. The
+          ~std::coroutine_handle~ that was stored in ~foo()~ promise
+          type (~bars~ coroutine) when it was started is resumed.
+       6) The ~bar~ coroutine resumes and continues executing until it
+          reaches the end of the ~co_await~ expression at which point
+          the destructor of the temporary task object that was
+          returned by ~foo~ is called.
+       7) The ~task~ destructor then calls the ~.destroy()~ method on
+          ~foo()~ coroutine handle which destorys the coroutine frame
+          along with the promise object and the copies of the
+          arguments.
 
-             // Calling .resume() on a handle will reactivate a suspended
-             // coroutine at the <resume-point>. The call to .resume() will
-             // return when the coroutine next hits a
-             // <return-to-caller-or-resumer> point.
-             void resume();
-
-             //The .destroy() method destroys the coroutine frame, calling the
-             //destructors of any in-scope variables and freeing memory used by
-             //the coroutine frame. Should normally be managed by RAII type and
-             //not called manually.
-             void destroy();
-
-             void* address() const;
-             static coroutine_handle from_address(void* address);
-         };
-
-         template <typename Promise>
-         struct coroutine_handle : coroutine_handle<void>
-         {
-             //The .promise() method returns a reference to the coroutine’s
-             //promise object. However, like .destroy(), it is generally only
-             //useful if you are authoring coroutine promise types. You should
-             //consider the coroutine’s promise object as an internal
-             //implementation detail of the coroutine. For most Normally
-             //Awaitable types you should use coroutine_handle<void> as the
-             //parameter type to the await_suspend() method instead of
-             //coroutine_handle<Promise>.
-             Promise& promise() const;
-
-             //The coroutine_handle<P>::from_promise(P& promise) function
-             //allows reconstructing the coroutine handle from a reference to
-             //the coroutine’s promise object. Note that you must ensure that
-             //the type, P, exactly matches the concrete promise type used for
-             //the coroutine frame; attempting to construct a
-             //coroutine_handle<Base> when the concrete promise type is Derived
-             //can lead to undefined behaviour.
-             static coroutine_handle from_promise(Promise& promise);
-
-             // The .address() / from_address() functions allow converting a
-             // coroutine handle to/from a void* pointer. This is primarily
-             // intended to allow passing as a ‘context’ parameter into
-             // existing C-style APIs, so you might find it useful in
-             // implementing Awaitable types in some circumstances. However, in
-             // most cases I’ve found it necessary to pass additional
-             // information through to callbacks in this ‘context’ parameter so
-             // I generally end up storing the coroutine_handle in a struct and
-             // passing a pointer to the struct in the ‘context’ parameter
-             // rather than using the .address() return-value.
-             static coroutine_handle from_address(void* address);
-         };
-         } // namespace std::experimental
-       #+end_src   
-     
-
-
-
-
+*** More explanations from different tutorials
 
    + The compiler replaces the function body of the coroutine into
      something like this if we only use ~co_await~

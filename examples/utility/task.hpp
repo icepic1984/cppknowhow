@@ -13,6 +13,7 @@
 #include <variant>
 #include <utility>
 #include <atomic>
+#include <future>
 
 auto dbg = [](const char* s) { std::cerr << "Function " << s << " called.\n"; };
 
@@ -259,3 +260,65 @@ struct Promise<void>
         return;
     }
 };
+
+template <typename T>
+struct SyncWaitImpl
+{
+    struct promise_type
+    {
+        SyncWaitImpl get_return_object()
+        {
+            DBG;
+            return {promise.get_future()};
+        }
+        std::suspend_never initial_suspend() noexcept
+        {
+            DBG;
+            return {};
+        }
+
+        std::suspend_never final_suspend() noexcept
+        {
+            DBG;
+            return {};
+        }
+
+        void return_value(T&& value)
+        {
+            DBG;
+            promise.set_value(std::move(value));
+        }
+
+        void unhandled_exception()
+        {
+            DBG;
+            promise.set_exception(std::current_exception());
+        }
+
+        std::promise<T> promise;
+    };
+
+    std::future<T> result;
+};
+
+template <typename T>
+struct ResultOfWaitImpl
+{
+    using value_type = std::remove_reference_t<
+        decltype(std::declval<T>().operator co_await().await_resume())>;
+};
+
+template <typename T>
+using ResultOfWait = typename ResultOfWaitImpl<T>::value_type;
+
+template <typename T>
+SyncWaitImpl<typename ResultOfWaitImpl<T>::value_type> syncWaitImpl(T&& task)
+{
+    co_return co_await std::forward<T>(task);
+}
+
+template <typename T>
+auto syncWait(T&& task)
+{
+    return syncWaitImpl(std::forward<T>(task)).result.get();
+}
