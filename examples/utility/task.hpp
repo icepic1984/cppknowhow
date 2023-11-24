@@ -1,4 +1,8 @@
-// https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s
+// https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s This is the
+// task implementation from Pavel Novikov. From my understanding he
+// does not use symetric transfer in this third iteration, where he
+// included atomics to make the promise/task threadsafe.
+
 #pragma once
 
 
