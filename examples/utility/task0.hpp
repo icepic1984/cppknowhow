@@ -1,10 +1,9 @@
 // https://www.youtube.com/watch?v=lm10Cj-HNKQ&t=2559s This is the
 // task implementation from Pavel Novikov. From my understanding he
-// does not use symetric transfer in this third iteration, where he
-// included atomics to make the promise/task threadsafe.
+// does not use symetric transfer in this iteration. Instead he is
+// using atmoics to make it thread safe.
 
 #pragma once
-
 
 #include "trace.hpp"
 #include <iostream>
@@ -17,12 +16,8 @@
 #include <atomic>
 #include <future>
 
-enum class State
+namespace iter0
 {
-    Started,
-    AttachedContinuation,
-    Finished
-};
 
 template <typename T>
 struct Promise;
@@ -61,13 +56,11 @@ struct [[nodiscard]] Task
             }
 
             using CoroHandle = std::coroutine_handle<>;
-            bool await_suspend(CoroHandle continuation) const noexcept
+            CoroHandle await_suspend(CoroHandle continuation) const noexcept
             {
                 DBG;
                 promise.continuation = continuation;
-                auto expectedState = State::Started;
-                return promise.state.compare_exchange_strong(
-                    expectedState, State::AttachedContinuation);
+                return std::coroutine_handle<Promise<T>>::from_promise(promise);
             }
 
             decltype(auto) await_resume() const
@@ -101,8 +94,6 @@ struct Promise
 
     std::variant<std::monostate, T, std::exception_ptr> result;
 
-    std::atomic<State> state = {State::Started};
-
     Task<T> get_return_object() noexcept
     {
         DBG;
@@ -131,8 +122,7 @@ struct Promise
             {
                 DBG;
                 auto& promise = thisCoro.promise();
-                const auto oldState = promise.state.exchange(State::Finished);
-                if (oldState == State::AttachedContinuation)
+                if (promise.continuation)
                 {
                     promise.continuation();
                 }
@@ -163,7 +153,7 @@ struct Promise
     bool isReady() const noexcept
     {
         DBG;
-        return state == State::Finished;
+        return result.index() != 0;
     }
 
     T&& getResult()
@@ -183,8 +173,6 @@ struct Promise<void>
     std::coroutine_handle<> continuation;
 
     std::exception_ptr exception = nullptr;
-
-    std::atomic<State> state = {State::Started};
 
     Task<void> get_return_object() noexcept
     {
@@ -218,8 +206,7 @@ struct Promise<void>
             {
                 DBG;
                 auto& promise = thisCoro.promise();
-                const auto oldState = promise.state.exchange(State::Finished);
-                if (oldState == State::AttachedContinuation)
+                if (promise.continuation)
                 {
                     DBG;
                     promise.continuation();
@@ -243,7 +230,9 @@ struct Promise<void>
     bool isReady() noexcept
     {
         DBG;
-        return state == State::Finished;
+        return !exception
+               && std::coroutine_handle<Promise<void>>::from_promise(*this)
+                      .done();
     }
 
     void getResult()
@@ -257,64 +246,4 @@ struct Promise<void>
     }
 };
 
-template <typename T>
-struct SyncWaitImpl
-{
-    struct promise_type
-    {
-        SyncWaitImpl get_return_object()
-        {
-            DBG;
-            return {promise.get_future()};
-        }
-        std::suspend_never initial_suspend() noexcept
-        {
-            DBG;
-            return {};
-        }
-
-        std::suspend_never final_suspend() noexcept
-        {
-            DBG;
-            return {};
-        }
-
-        void return_value(T&& value)
-        {
-            DBG;
-            promise.set_value(std::move(value));
-        }
-
-        void unhandled_exception()
-        {
-            DBG;
-            promise.set_exception(std::current_exception());
-        }
-
-        std::promise<T> promise;
-    };
-
-    std::future<T> result;
-};
-
-template <typename T>
-struct ResultOfWaitImpl
-{
-    using value_type = std::remove_reference_t<
-        decltype(std::declval<T>().operator co_await().await_resume())>;
-};
-
-template <typename T>
-using ResultOfWait = typename ResultOfWaitImpl<T>::value_type;
-
-template <typename T>
-SyncWaitImpl<typename ResultOfWaitImpl<T>::value_type> syncWaitImpl(T&& task)
-{
-    co_return co_await std::forward<T>(task);
-}
-
-template <typename T>
-auto syncWait(T&& task)
-{
-    return syncWaitImpl(std::forward<T>(task)).result.get();
-}
+} // namespace iter0
