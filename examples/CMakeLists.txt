@@ -6,7 +6,7 @@ project(CppExamples VERSION 1.0.0 LANGUAGES CXX)
 
 add_compile_options(-DEIGEN_DONT_ALIGN_STATICALLY)
 
-find_package(Boost 1.75.0 REQUIRED COMPONENTS system)
+find_package(Boost 1.75.0 REQUIRED COMPONENTS system thread)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 
@@ -33,3 +33,7 @@ add_executable(CoroExample14 coroutine_examples/example12.cpp)
 add_executable(CoroExample15 coroutine_examples/example13.cpp)
 add_executable(CoroExample16 coroutine_examples/example14.cpp)
 add_executable(CoroExample17 coroutine_examples/example15.cpp)
+add_executable(CoroExample18 coroutine_examples/example16.cpp)
+
+
+target_link_libraries(CoroExample18 Boost::thread)
