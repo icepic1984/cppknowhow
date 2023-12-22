@@ -9,18 +9,36 @@
 #include <utility>
 #include <fstream>
 #include "../utility/future.hpp"
+#include "../utility/trace.hpp"
 
-boost::future<int> compute_value()
+std::future<int> compute_value()
 {
-    int result = co_await boost::async([] {
+    DBG;
+    int result = co_await std::async([] {
         std::this_thread::sleep_for(std::chrono::seconds(10));
         return 30;
     });
+    DBG;
     co_return result;
+}
+
+std::future<void> test()
+{
+    co_return co_await std::async([]{
+        std::cout << "Yeah" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::cout << "Done" << std::endl;
+    });
 }
 
 int main()
 {
+    DBG;
     auto bla = compute_value();
-    std:: cout << bla.get() << std::endl;
+    DBG;
+    auto result = bla.get();
+    test().get();
+    std::cout << "Result: " << result << std::endl;
+    DBG;
+
 }
